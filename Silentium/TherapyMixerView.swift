@@ -5,7 +5,6 @@
 //  Created by Souha Aouididi on 07/05/26.
 //
 
-
 import SwiftUI
 
 struct TherapyMixerView: View {
@@ -16,6 +15,10 @@ struct TherapyMixerView: View {
     @State private var selectedMode = "Calm"
     @State private var isPlaying = false
     @State private var showingTest = false
+    @State private var showingSleepView = false
+    
+    // Core presentation flag tracking full-screen cover breathing state overrides
+    @State private var showingBreathingExercise = false
     
     let noises = [
         ("White", "cloud.fill", Color.gray),
@@ -72,7 +75,22 @@ struct TherapyMixerView: View {
                                 title: mode.0,
                                 icon: mode.1,
                                 isSelected: selectedMode == mode.0,
-                                action: { selectedMode = mode.0 }
+                                action: {
+                                    selectedMode = mode.0
+                                    
+                                    if mode.0 == "Focus" {
+                                        showingBreathingExercise = true
+                                    } else if mode.0 == "Sleep" {
+                                        // Trigger the presentation flag for the sleep modal view
+                                        showingSleepView = true
+                                        
+                                        // Update parameters and audio state pipelines seamlessly
+                                        selectedNoise = "Sleep"
+                                        if isPlaying {
+                                            engine.startProceduralSound(type: "sleep")
+                                        }
+                                    }
+                                }
                             )
                         }
                     }
@@ -138,10 +156,18 @@ struct TherapyMixerView: View {
         .fullScreenCover(isPresented: $showingTest) {
             ToneFinderView(engine: engine, isFirstTime: false)
         }
+        // Presents the clean layout of BreathingView directly out of the context parameters of the Focus Button click
+        .fullScreenCover(isPresented: $showingBreathingExercise) {
+            BreathingView()
+        }
+        // Presents the immersive layout of TinnitusSleepView cleanly when Sleep is selected
+        .fullScreenCover(isPresented: $showingSleepView) {
+            SleepView(engine: engine)
+        }
     }
 }
 
-// MARK: - Core Grid and Scrolling UI Elements
+// Core Grid and Scrolling UI Elements
 
 struct SoundCard: View {
     let title: String

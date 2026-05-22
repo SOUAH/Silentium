@@ -8,16 +8,18 @@
 import SwiftUI
 
 struct BioReliefView: View {
-    // CHANGE THIS LINE: Ensure it says @ObservedObject, NOT @EnvironmentObject
     @ObservedObject var engine: TinnitusAppEngine
-    
     @State private var isBreathing = false
+    @State private var showingPermissionAlert = false
+    @State private var alertErrorMessage = ""
+    
+    @AppStorage("isBiometricTrackingEnabled") private var isTrackingEnabledLocal = false
     
     var body: some View {
         ZStack {
             AppTheme.background.ignoresSafeArea()
             
-            VStack(spacing: 30) {
+            VStack(spacing: 25) {
                 // 1. Header Section
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Bio-Adaptive Relief")
@@ -37,24 +39,23 @@ struct BioReliefView: View {
                 ZStack {
                     Circle()
                         .stroke(Color.black.opacity(0.03), lineWidth: 24)
-                        .frame(width: 200, height: 200)
+                        .frame(width: 190, height: 190)
                     
-                    // Dynamic color shifts to alert user during stress spikes
                     Circle()
                         .stroke(
                             engine.stressLevel == "Spike" ? AnyShapeStyle(Color.red.opacity(0.6)) : AnyShapeStyle(AppTheme.accentGradient),
                             style: StrokeStyle(lineWidth: 20, lineCap: .round)
                         )
-                        .frame(width: 200, height: 200)
-                        .scaleEffect(isBreathing ? 1.08 : 1.0)
-                        .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: isBreathing)
+                        .frame(width: 190, height: 190)
+                        .scaleEffect(isBreathing && isTrackingEnabledLocal ? 1.05 : 1.0)
+                        .animation(isTrackingEnabledLocal ? .easeInOut(duration: 1.5).repeatForever(autoreverses: true) : .default, value: isBreathing)
                     
                     VStack(spacing: 4) {
-                        Image(systemName: "heart.text.square.fill")
+                        Image(systemName: isTrackingEnabledLocal ? "heart.text.square.fill" : "heart.slash.fill")
                             .font(.system(size: 28))
-                            .foregroundColor(engine.stressLevel == "Spike" ? .red : .black)
+                            .foregroundColor(engine.stressLevel == "Spike" ? .red : .black.opacity(0.7))
                         
-                        Text(engine.currentHeartRate == 0 ? "--" : "\(engine.currentHeartRate)") // Display "--" if no data
+                        Text(!isTrackingEnabledLocal ? "--" : (engine.currentHeartRate == 0 ? "..." : "\(engine.currentHeartRate)"))
                             .font(.system(size: 54, weight: .bold, design: .monospaced))
                             .foregroundColor(.black)
                         
@@ -63,17 +64,57 @@ struct BioReliefView: View {
                             .foregroundColor(.black.opacity(0.5))
                     }
                 }
-                .frame(height: 220)
+                .frame(height: 200)
                 .onAppear {
                     isBreathing = true
-                    engine.startHealthKitMonitoring() // Start HealthKit monitoring
+                    if isTrackingEnabledLocal {
+                        engine.startHealthKitMonitoring()
+                    }
                 }
                 
-                // 3. Clinical Metrics Cards
+                // 3. Automation Toggle Module
+                VStack(spacing: 12) {
+                    Toggle(isOn: $isTrackingEnabledLocal) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Sync Apple Watch")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.black)
+                            Text("Adapt audio therapy to stress responses")
+                                .font(.system(size: 13))
+                                .foregroundColor(.black.opacity(0.5))
+                        }
+                    }
+                    .tint(.orange)
+                    .onChange(of: isTrackingEnabledLocal) { newValue in
+                        if newValue {
+                            engine.requestHealthKitPermission { success, error in
+                                if success {
+                                    engine.startHealthKitMonitoring()
+                                } else {
+                                    isTrackingEnabledLocal = false
+                                    engine.stopHealthKitMonitoring()
+                                    if let error = error {
+                                        alertErrorMessage = error.localizedDescription
+                                        showingPermissionAlert = true
+                                    }
+                                }
+                            }
+                        } else {
+                            engine.stopHealthKitMonitoring()
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(Color.white)
+                .cornerRadius(20)
+                .padding(.horizontal)
+                
+                // 4. Clinical Metrics Cards
                 VStack(spacing: 16) {
                     MetricRow(
                         title: "Nervous System",
-                        value: engine.stressLevel,
+                        value: !isTrackingEnabledLocal ? "Disabled" : engine.stressLevel,
                         statusColor: stressLevelColor(for: engine.stressLevel),
                         icon: "waveform.path.ecg"
                     )
@@ -82,8 +123,8 @@ struct BioReliefView: View {
                     
                     MetricRow(
                         title: "Adaptive Compensation",
-                        value: adaptiveCompensationText(for: engine.stressLevel),
-                        statusColor: .black, // This color does not change based on stress level in the original
+                        value: !isTrackingEnabledLocal ? "Inactive" : adaptiveCompensationText(for: engine.stressLevel),
+                        statusColor: .black,
                         icon: "slider.horizontal.below.square.filled.and.square"
                     )
                 }
@@ -95,87 +136,59 @@ struct BioReliefView: View {
                 )
                 .padding(.horizontal)
                 
-                // 4. Interactive Regulation Module (Vagus Nerve Stimulation)
-                VStack(spacing: 12) {
-                    Text("Feeling a Tinnitus Spike?")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black.opacity(0.7))
-                    
-                    Button(action: {
-                        // This button can now trigger a breathing exercise UI or guide,
-                        // but it should not directly manipulate the engine's biometric states
-                        // as they are now driven by HealthKit.
-                        // For example:
-                        // engine.startBreathingExercise()
-                        print("User tapped Begin Coherence Breathing. Implement actual breathing exercise logic.")
-                    }) {
-                        HStack {
-                            Image(systemName: "lungs.fill")
-                            Text("Begin Coherence Breathing")
-                        }
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.black)
-                        .cornerRadius(16)
-                    }
-                }
-                .padding(.horizontal)
-                
                 Spacer()
             }
         }
+        .alert("Health Access Required", isPresented: $showingPermissionAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertErrorMessage.isEmpty ? "Please enable Heart Rate access permissions inside Apple Health settings." : alertErrorMessage)
+        }
     }
     
-    // Helper function to determine color based on stress level string
     private func stressLevelColor(for level: String) -> Color {
+        guard isTrackingEnabledLocal else { return .gray }
         switch level {
         case "Spike": return .red
         case "Elevated": return .orange
         case "Stable": return .green
-        default: return .gray // For "Unknown" or "No Data"
+        default: return .gray
         }
     }
     
-    // Helper function for Adaptive Compensation text
     private func adaptiveCompensationText(for level: String) -> String {
+        guard isTrackingEnabledLocal else { return "Inactive" }
         switch level {
         case "Spike": return "+15% Extra Masking"
         case "Elevated": return "+5% Masking"
         case "Stable": return "Optimal Depth"
-        default: return "Calibrating..." // For "Unknown" or "No Data"
+        default: return "Calibrating..."
         }
     }
-}
-
-// Reusable Clinical Row Component
-struct MetricRow: View {
-    let title: String
-    let value: String
-    let statusColor: Color
-    let icon: String
     
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundColor(.black.opacity(0.6))
-                .frame(width: 30)
-            
-            Text(title)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.black.opacity(0.8))
-            
-            Spacer()
-            
-            Text(value)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(statusColor)
+    struct MetricRow: View {
+        let title: String
+        let value: String
+        let statusColor: Color
+        let icon: String
+        
+        var body: some View {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                    .foregroundColor(.black.opacity(0.6))
+                    .frame(width: 30)
+                
+                Text(title)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.black.opacity(0.8))
+                
+                Spacer()
+                
+                Text(value)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(statusColor)
+            }
         }
     }
-}
-
-#Preview {
-    BioReliefView(engine: TinnitusAppEngine())
 }
