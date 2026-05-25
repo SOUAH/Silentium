@@ -14,9 +14,22 @@
 		6AAE6C4F2FBB4FAC00E71650 /* Silentium.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Silentium.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		6A3551112FC07404005E2651 /* Exceptions for "Silentium" folder in "Silentium" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 6AAE6C4E2FBB4FAC00E71650 /* Silentium */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6AAE6C512FBB4FAC00E71650 /* Silentium */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6A3551112FC07404005E2651 /* Exceptions for "Silentium" folder in "Silentium" target */,
+			);
 			path = Silentium;
 			sourceTree = "<group>";
 		};
@@ -265,6 +278,9 @@
 				DEVELOPMENT_TEAM = 6LUF5JKK7U;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Silentium/Info.plist;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Silentium reads heart rate data from your Apple Watch to automatically adjust masking audio during sudden stress spikes or tinnitus flare-ups";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Silentium syncs with HealthKit to monitor real-time biometrics, allowing the audio engine to dynamically suppress perceived tinnitus spikes";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -297,6 +313,9 @@
 				DEVELOPMENT_TEAM = 6LUF5JKK7U;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Silentium/Info.plist;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Silentium reads heart rate data from your Apple Watch to automatically adjust masking audio during sudden stress spikes or tinnitus flare-ups";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Silentium syncs with HealthKit to monitor real-time biometrics, allowing the audio engine to dynamically suppress perceived tinnitus spikes";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

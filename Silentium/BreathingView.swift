@@ -76,15 +76,16 @@ struct BreathingView: View {
             
             VStack(spacing: 0) {
                 // 1. Navigation Header
-                HStack(alignment: .center) {
+                HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Vagus Regulation")
-                            .font(.system(size: 32, weight: .bold))
+                            .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.black)
                         Text("Calm your body to drop tinnitus focus")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundColor(.black.opacity(0.6))
                     }
+                    .padding(.top, 20)
                     Spacer()
                     
                     Button(action: {
@@ -101,46 +102,48 @@ struct BreathingView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
                 
-                Spacer(minLength: 20)
-                
-                // 2. Interactive Pacing Ring Circle Container
-                ZStack {
-                    // Outer Pulsing Halos
-                    Circle()
-                        .fill(LinearGradient(colors: selectedTechnique.gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 250, height: 250)
-                        .scaleEffect(circleScale)
-                        .opacity(circleOpacity * 0.2)
+                // Conditional layout for when session is active or inactive
+                if !isSessionActive {
+                    // Layout for selecting technique
+                    Spacer(minLength: 20) // Spacer pushing down from header
                     
-                    Circle()
-                        .fill(LinearGradient(colors: selectedTechnique.gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 210, height: 210)
-                        .scaleEffect(circleScale)
-                        .opacity(circleOpacity)
-                    
-                    VStack(spacing: 8) {
-                        Image(systemName: selectedTechnique.icon)
-                            .font(.system(size: 34, weight: .semibold))
-                            .foregroundStyle(.white)
+                    // 2. Interactive Pacing Ring Circle Container
+                    ZStack {
+                        // Outer Pulsing Halos
+                        Circle()
+                            .fill(LinearGradient(colors: selectedTechnique.gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 250, height: 250)
+                            .scaleEffect(circleScale)
+                            .opacity(circleOpacity * 0.2)
                         
-                        Text(currentPhaseText.uppercased())
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.white)
-                            .tracking(2)
+                        Circle()
+                            .fill(LinearGradient(colors: selectedTechnique.gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 210, height: 210)
+                            .scaleEffect(circleScale)
+                            .opacity(circleOpacity)
                         
-                        if isSessionActive && secondsRemainingInPhase > 0 {
-                            Text("\(secondsRemainingInPhase)s")
-                                .font(.system(size: 26, weight: .bold, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.9))
+                        VStack(spacing: 8) {
+                            Image(systemName: selectedTechnique.icon)
+                                .font(.system(size: 34, weight: .semibold))
+                                .foregroundStyle(.white)
+                            
+                            Text(currentPhaseText.uppercased())
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.white)
+                                .tracking(2)
+                            
+                            if isSessionActive && secondsRemainingInPhase > 0 {
+                                Text("\(secondsRemainingInPhase)s")
+                                    .font(.system(size: 26, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.9))
+                            }
                         }
                     }
-                }
-                .frame(height: 290)
-                
-                Spacer(minLength: 20)
-                
-                // 3. Dynamic Button Cards Selector Stack
-                if !isSessionActive {
+                    .frame(height: 290)
+                    
+                    Spacer(minLength: 20) // Spacer pushing up towards selector
+                    
+                    // 3. Dynamic Button Cards Selector Stack
                     VStack(spacing: 12) {
                         ForEach(BreathMethod.allCases) { technique in
                             Button(action: {
@@ -163,7 +166,6 @@ struct BreathingView: View {
                                     if selectedTechnique == technique {
                                         Image(systemName: "checkmark.circle.fill")
                                             .font(.system(size: 20, weight: .bold))
-                                            // Use AppTheme.accentGradient for the checkmark
                                             .foregroundStyle(AppTheme.accentGradient)
                                     }
                                 }
@@ -182,12 +184,48 @@ struct BreathingView: View {
                     }
                     .padding(.horizontal, 24)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                    
+                    Spacer(minLength: 30) // Spacer pushing up towards action button
                 } else {
-                    // Hidden placeholder container layout spacer during execution state sessions
-                    VStack { Spacer() }.frame(height: 196)
+                    // Layout for active session (circle centered)
+                    Spacer() // Flexible spacer to push down from header
+                    
+                    // 2. Interactive Pacing Ring Circle Container
+                    ZStack {
+                        // Outer Pulsing Halos
+                        Circle()
+                            .fill(LinearGradient(colors: selectedTechnique.gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 250, height: 250)
+                            .scaleEffect(circleScale)
+                            .opacity(circleOpacity * 0.2)
+                        
+                        Circle()
+                            .fill(LinearGradient(colors: selectedTechnique.gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 210, height: 210)
+                            .scaleEffect(circleScale)
+                            .opacity(circleOpacity)
+                        
+                        VStack(spacing: 8) {
+                            Image(systemName: selectedTechnique.icon)
+                                .font(.system(size: 34, weight: .semibold))
+                                .foregroundStyle(.white)
+                            
+                            Text(currentPhaseText.uppercased())
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.white)
+                                .tracking(2)
+                            
+                            if isSessionActive && secondsRemainingInPhase > 0 {
+                                Text("\(secondsRemainingInPhase)s")
+                                    .font(.system(size: 26, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.9))
+                            }
+                        }
+                    }
+                    .frame(height: 290)
+                    
+                    Spacer() // Flexible spacer to push up from action button
                 }
-                
-                Spacer(minLength: 30)
                 
                 // 4. Primary Master Session Action Controller
                 Button(action: {
@@ -207,11 +245,12 @@ struct BreathingView: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    // Use AppTheme.accentGradient for the button background
-                    .background(AppTheme.accentGradient)
-                    .cornerRadius(16)
-                    .shadow(color: Color.black.opacity(0.15), radius: 8, y: 4)
+                    .padding(.vertical, 20)
+                    .background(
+                        Capsule()
+                            .fill(AppTheme.accentGradient)
+                            .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
+                    )
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)

@@ -31,50 +31,60 @@ struct SleepView: View {
             Color.black.ignoresSafeArea()
             
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 30) {
+                VStack(alignment: .leading, spacing: 20) { // Changed spacing from 5 to 0
                     
                     // 1. Navigation Header Row
                     HStack {
+                        Spacer() // Pushes the button to the right
+                        
                         Button(action: { dismiss() }) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(.white)
+                            Image(systemName: "xmark")
+                                .font(.system(size: 18, weight: .bold)) // Adjusted font size for 'xmark'
+                                .foregroundColor(.white.opacity(0.7)) // White for contrast on dark background
+                                .padding(12)
+                                .background(Circle().fill(Color.white.opacity(0.05))) // Light background for dark theme
                         }
-                        
-                        Spacer()
-                        
-                        Text("Sleep Mode")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.white)
-                        
-                        Spacer()
-                        
-                        Image(systemName: "chevron.left").opacity(0)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 10)
                     
                     // 2. "Fall Asleep" - Full-Width Vertical Sound Cards Stack
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 10) {
                         Text("Fall Asleep")
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 20)
                         
                         VStack(spacing: 14) {
                             ForEach(fallAsleepSounds, id: \.0) { sound in
-                                let isThisActive = selectedPlayerSound?.title == sound.0 && engine.isPlaying
+                                // Determine if this specific sound card represents the currently selected sound.
+                                let isThisCardSelected = selectedPlayerSound?.key == sound.3
+                                // Determine if this specific sound card represents the sound that is currently playing.
+                                let isThisSoundPlaying = isThisCardSelected && engine.isPlaying
                                 
                                 Button(action: {
-                                    // Stop any running stream prior to launching sheet configurations
-                                    engine.stopMaskingSound()
-                                    
-                                    // Assign parameters and toggle presentation fader sheets
-                                    selectedPlayerSound = (title: sound.0, subtitle: sound.1, key: sound.3)
-                                    showingPlayerSheet = true
-                                    
-                                    // Instantly start generating the hardware signal thread
-                                    engine.startProceduralSound(type: sound.3)
+                                    if isThisSoundPlaying {
+                                        // If this sound is currently playing, stop it (effectively pausing it).
+                                        engine.stopMaskingSound()
+                                        // The sheet remains presented, SleepPlayerView should update its state.
+                                    } else {
+                                        // If this sound is not currently playing:
+                                        // 1. Stop any other sound that might be playing.
+                                        // 2. Set this sound as the selected one.
+                                        // 3. Start playing this sound.
+                                        
+                                        // Only stop if the engine is currently playing something, to avoid unnecessary calls.
+                                        if engine.isPlaying {
+                                            engine.stopMaskingSound()
+                                        }
+                                        
+                                        // Assign parameters for the *new* selection
+                                        selectedPlayerSound = (title: sound.0, subtitle: sound.1, key: sound.3)
+                                        showingPlayerSheet = true // Always show the sheet when a sound is selected to play
+                                        
+                                        // Instantly start generating the hardware signal thread for the new sound
+                                        engine.startProceduralSound(type: sound.3)
+                                    }
                                 }) {
                                     HStack(alignment: .top, spacing: 16) {
                                         // App signature gradient icon container
@@ -98,11 +108,17 @@ struct SleepView: View {
                                         
                                         Spacer()
                                         
-                                        if isThisActive {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .font(.system(size: 22))
+                                        // Icon logic for play/pause
+                                        if isThisSoundPlaying {
+                                            Image(systemName: "pause.fill")
+                                                .font(.system(size: 30))
+                                                .foregroundStyle(AppTheme.accentGradient)
+                                        } else if isThisCardSelected { // This sound is selected but not playing (i.e., paused)
+                                            Image(systemName: "play.fill")
+                                                .font(.system(size: 30))
                                                 .foregroundStyle(AppTheme.accentGradient)
                                         }
+                                        // If not selected, no icon is shown
                                     }
                                     .padding(20)
                                     .frame(maxWidth: .infinity, alignment: .leading) // Stretches box horizontally full
@@ -110,7 +126,8 @@ struct SleepView: View {
                                     .cornerRadius(20)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 20)
-                                            .stroke(isThisActive ? AnyShapeStyle(AppTheme.accentGradient) : AnyShapeStyle(Color.clear), lineWidth: 1.5)
+                                            // The overlay stroke now highlights the card if it's selected, whether playing or paused.
+                                            .stroke(isThisCardSelected ? AnyShapeStyle(AppTheme.accentGradient) : AnyShapeStyle(Color.clear), lineWidth: 1.5)
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
@@ -187,7 +204,7 @@ struct SleepView: View {
                             
                             Image(systemName: "info.circle")
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(AppTheme.accentGradient)
+                                .foregroundStyle(.yellow)
                             
                             Text("Melatonin Preservation: Pure black pixels decrease blue light exposure.")
                                 .font(.system(size: 13, weight: .medium))
