@@ -35,7 +35,7 @@ struct MainTabView: View {
                 BioReliefView(engine: appEngine)
                     .tabItem { Label("Relief", systemImage: "heart.text.square.fill") }
                 
-                JourneyView()
+                SettingsView()
                     .tabItem { Label("Settings", systemImage: "gearshape.2.fill") }
             }
             .accentColor(.orange)

@@ -67,12 +67,12 @@ class TinnitusAppEngine: ObservableObject {
             return noErr
         }
 
+        // Shared Filter Coefficients & Accumulators across rendering frame cycles
         var b0: Float = 0.0, b1: Float = 0.0, b2: Float = 0.0
         var b3: Float = 0.0, b4: Float = 0.0, b5: Float = 0.0, b6: Float = 0.0
         var lastOut: Float = 0.0
         var timeElapsed: Float = 0.0
         
-        // Mathematical accumulators tracking localized procedural sleep states
         var sleepBrownAccumulator: Float = 0.0
         var sleepDeltaTheta: Float = 0.0
         
@@ -81,75 +81,151 @@ class TinnitusAppEngine: ObservableObject {
             let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
             guard self.isPlaying else { return noErr }
             
+            // Capture atomic copy of real-time bio-boost parameter
+            let currentBoost = self.adaptiveVolumeBoost
+            
             for frame in 0..<Int(frameCount) {
                 timeElapsed += 1.0 / sampleRate
                 let white = (Float(arc4random()) / Float(UInt32.max)) * 2.0 - 1.0
                 var signal: Float = 0.0
                 
-                switch self.activeSoundType.lowercased() {
-                case "brown_sleep":
-                    // Leaky integration loop filter producing raw brown spectrum density (-6dB/octave)
-                    sleepBrownAccumulator = (0.992 * sleepBrownAccumulator) + (0.015 * white)
-                    signal = sleepBrownAccumulator * 4.0
+                let soundSelection = self.activeSoundType
+                
+                switch soundSelection.lowercased() {
                     
-                case "sub_delta":
-                    // Deep brown baseline filtered rumble
-                    sleepBrownAccumulator = (0.992 * sleepBrownAccumulator) + (0.015 * white)
+                // =================================================================
+                // 1. WHITE NOISE SPECTRUM MATRICES (High-Frequency Intense Profiles)
+                // =================================================================
+                case "white":
+                    signal = white * 0.15
                     
-                    // Ultra-slow Low-frequency oscillation mapping (0.12 Hz = ~8.33s breathing period cycles)
-                    let lfoFrequency: Float = 0.12
-                    let phaseIncrement = (Float.pi * 2.0 * lfoFrequency) / sampleRate
+                case "torrential downpour":
+                    let dynamicRainSwell = sin(timeElapsed * 0.5) * 0.15 + 0.85
+                    signal = white * 0.35 * dynamicRainSwell
                     
-                    // Creates a smooth floating sinusoidal respiration envelope amplitude curve
-                    let biologicalSwell = sin(sleepDeltaTheta) * 0.325 + 0.675
-                    signal = sleepBrownAccumulator * 3.5 * biologicalSwell
+                case "up-close waterfall":
+                    signal = white * 0.45
                     
-                    // Advance internal phase angle pointer safely
-                    sleepDeltaTheta += phaseIncrement
-                    if sleepDeltaTheta > Float.pi * 2.0 { sleepDeltaTheta -= Float.pi * 2.0 }
+                case "high-velocity shallow rapids":
+                    let rapidRipple = sin(timeElapsed * 22.0) * 0.05 + 0.35
+                    signal = white * rapidRipple
                     
-                case "wind":
+                case "blizzard winds":
+                    let windHowl = sin(timeElapsed * 0.3) * 0.2 + 0.4
+                    signal = white * windHowl
+                    
+                case "hailstones on a lake":
+                    signal = white * 0.20
+                    if Float.random(in: 0...1) > 0.994 {
+                        signal += Float.random(in: -0.35...0.35) // Sharp icy stone impact transients
+                    }
+                    
+                case "high-pressure geyser eruption":
+                    let steamSwell = sin(timeElapsed * 8.0) * 0.04 + 0.38
+                    signal = white * steamSwell
+                    
+                case "desert sandstorm":
+                    let sandSwish = cos(timeElapsed * 1.5) * 0.1 + 0.32
+                    signal = white * sandSwish
+                    
+                case "up-close cicada chorus":
+                    let chirpSync = sin(timeElapsed * 45.0) * 0.15 + 0.35
+                    signal = white * chirpSync
+                    
+                case "crashing sea foam":
+                    let foamFizz = abs(sin(timeElapsed * 1.8)) * 0.18 + 0.12
+                    signal = white * foamFizz
+                    
+                case "roaring forest fire":
+                    signal = white * 0.25
+                    if Float.random(in: 0...1) > 0.996 {
+                        signal += Float.random(in: 0.4...0.7) // Crackle/snap sparks injection
+                    }
+
+                // =================================================================
+                // 2. PINK NOISE SPECTRUM MATRICES (Balanced, Balanced 1/f Slopes)
+                // =================================================================
+                case "rain", "steady canopy rain", "wind through pine needles", "a babbling brook", "swaying meadow grasses", "rustling autumn leaves", "distant ocean waves from a beach", "distant ocean waves", "ocean", "sea_waves", "a distant bird colony", "wind over sand dunes", "a soft winter snowfall", "a gentle waterfall from a quarter-mile away", "distant waterfall":
+                    
+                    // Voss-McCartney 1/f Pink Cascade Array
+                    b0 = 0.99886 * b0 + white * 0.0555179
+                    b1 = 0.99332 * b1 + white * 0.0750759
+                    b2 = 0.96900 * b2 + white * 0.1538520
+                    b3 = 0.86650 * b3 + white * 0.3104856
+                    b4 = 0.55000 * b4 + white * 0.5329522
+                    b5 = -0.7616 * b5 - white * 0.0168980
+                    signal = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362
+                    b6 = white * 0.115926
+                    signal *= 0.12 // Attenuation scaling factor
+                    
+                    // Profile-specific wave transformations
+                    if soundSelection.lowercased() == "ocean" || soundSelection.lowercased() == "sea_waves" || soundSelection.lowercased() == "distant ocean waves from a beach" || soundSelection.lowercased() == "distant ocean waves" {
+                        let waveSwell = sin(timeElapsed * (Float.pi * 2.0 / 5.0)) * 0.4 + 0.6
+                        signal *= waveSwell
+                    } else if soundSelection.lowercased() == "rain" {
+                        let dropChance = Float(arc4random()) / Float(UInt32.max)
+                        if dropChance > 0.993 { signal += white * 0.35 }
+                    } else if soundSelection.lowercased() == "a babbling brook" {
+                        let brookOscillation = sin(timeElapsed * 14.0) * 0.15 + 0.85
+                        signal *= brookOscillation
+                    } else if soundSelection.lowercased() == "wind through pine needles" {
+                        let pineSwell = sin(timeElapsed * 0.4) * 0.2 + 0.8
+                        signal *= pineSwell
+                    } else if soundSelection.lowercased() == "swaying meadow grasses" {
+                        let grassSway = abs(cos(timeElapsed * 0.9)) * 0.25 + 0.75
+                        signal *= grassSway
+                    } else if soundSelection.lowercased() == "rustling autumn leaves" {
+                        let leafFlutter = Float.random(in: 0.7...1.0)
+                        signal *= leafFlutter
+                    }
+
+                // =================================================================
+                // 3. BROWN NOISE SPECTRUM MATRICES (Deep Sub-Bass Planetary Rumbles)
+                // =================================================================
+                case "wind", "brown_sleep", "sub_delta", "distant rolling thunder", "heavy ocean surf", "niagara-scale waterfall from a distance", "niagara-scale waterfall", "wind in a deep rocky canyon", "subterranean geothermal mud pots", "glacial calving", "an avalanche or landslide", "earthquake tremors", "a distant hurricane wall", "deep ocean undercurrents":
+                    
+                    // Mathematical 1/f^2 Brown Noise Accumulator
                     signal = (lastOut + (0.02 * white)) / 1.02
                     lastOut = signal
                     signal *= 3.5
-                    let gusting = sin(timeElapsed * 0.4) * 0.3 + 0.7
-                    signal *= gusting
                     
-                case "ocean", "sea_waves":
-                    b0 = 0.99886 * b0 + white * 0.0555179
-                    b1 = 0.99332 * b1 + white * 0.0750759
-                    b2 = 0.96900 * b2 + white * 0.1538520
-                    b3 = 0.86650 * b3 + white * 0.3104856
-                    b4 = 0.55000 * b4 + white * 0.5329522
-                    b5 = -0.7616 * b5 - white * 0.0168980
-                    signal = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362
-                    b6 = white * 0.115926
-                    signal *= 0.11
-                    let waveSwell = sin(timeElapsed * (Float.pi * 2.0 / 5.0)) * 0.4 + 0.6
-                    signal *= waveSwell
-                    
-                case "rain":
-                    b0 = 0.99886 * b0 + white * 0.0555179
-                    b1 = 0.99332 * b1 + white * 0.0750759
-                    b2 = 0.96900 * b2 + white * 0.1538520
-                    b3 = 0.86650 * b3 + white * 0.3104856
-                    b4 = 0.55000 * b4 + white * 0.5329522
-                    b5 = -0.7616 * b5 - white * 0.0168980
-                    signal = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362
-                    b6 = white * 0.115926
-                    signal *= 0.12
-                    let dropChance = Float(arc4random()) / Float(UInt32.max)
-                    if dropChance > 0.993 { signal += white * 0.35 }
-                    
-                case "white":
-                    signal = white * 0.15
+                    // Specialized processing overrides
+                    if soundSelection.lowercased() == "brown_sleep" {
+                        sleepBrownAccumulator = (0.992 * sleepBrownAccumulator) + (0.015 * white)
+                        signal = sleepBrownAccumulator * 4.0
+                    } else if soundSelection.lowercased() == "sub_delta" {
+                        sleepBrownAccumulator = (0.992 * sleepBrownAccumulator) + (0.015 * white)
+                        let lfoFrequency: Float = 0.12
+                        let phaseInc = (Float.pi * 2.0 * lfoFrequency) / sampleRate
+                        let biologicalSwell = sin(sleepDeltaTheta) * 0.325 + 0.675
+                        signal = sleepBrownAccumulator * 3.5 * biologicalSwell
+                        sleepDeltaTheta += phaseInc
+                        if sleepDeltaTheta > Float.pi * 2.0 { sleepDeltaTheta -= Float.pi * 2.0 }
+                    } else if soundSelection.lowercased() == "wind" {
+                        let gusting = sin(timeElapsed * 0.4) * 0.3 + 0.7
+                        signal *= gusting
+                    } else if soundSelection.lowercased() == "distant rolling thunder" {
+                        if Float.random(in: 0...1) > 0.9994 { b5 = 1.3 } // Strike point dynamic step load
+                        b5 *= 0.9992 // Smooth exponential decay envelope
+                        signal += b5 * Float.random(in: 0.25...0.5)
+                    } else if soundSelection.lowercased() == "heavy ocean surf" {
+                        let heavyWaveSwell = sin(timeElapsed * 0.6) * 0.45 + 0.55
+                        signal *= heavyWaveSwell
+                    } else if soundSelection.lowercased() == "subterranean geothermal mud pots" {
+                        let bubbleMod = sin(timeElapsed * 10.0) * 0.3 + 0.7
+                        signal *= bubbleMod
+                    }
+
                 default:
                     signal = 0.0
                 }
                 
+                // Live Biometric Modulation Hook: Applies HealthKit stress scaling factor instantly to output buffers
+                let finalRegulatedSignal = signal * (1.0 + currentBoost)
+                
                 for buffer in ablPointer {
                     let buf: UnsafeMutableBufferPointer<Float> = UnsafeMutableBufferPointer(buffer)
-                    buf[frame] = signal
+                    buf[frame] = finalRegulatedSignal
                 }
             }
             return noErr
@@ -185,7 +261,7 @@ class TinnitusAppEngine: ObservableObject {
     }
 }
 
-// MARK: - HealthKit Integration
+// HealthKit Integration
 extension TinnitusAppEngine {
     
     func requestHealthKitPermission(completion: @escaping (Bool, Error?) -> Void) {
