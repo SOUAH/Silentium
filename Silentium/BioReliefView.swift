@@ -85,7 +85,7 @@ struct BioReliefView: View {
                         }
                     }
                     .tint(.orange)
-                    .onChange(of: isTrackingEnabledLocal) { newValue in
+                    .onChange(of: isTrackingEnabledLocal) { newValue,n in
                         if newValue {
                             engine.requestHealthKitPermission { success, error in
                                 if success {

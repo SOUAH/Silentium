@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-//Masking Sound Soundscape Entity Model
+// Masking Sound Blueprint Model
 struct MaskingSound: Identifiable, Equatable {
     let id = UUID()
     let name: String
@@ -26,11 +26,8 @@ struct TherapyMixerView: View {
         category: "White",
         systemIcon: "cloud.heavyrain.fill"
     )
-    @State private var selectedMode = "Focus"
     @State private var isPlaying = false
-    @State private var showingTest = false
-    @State private var showingSleepView = false
-    @State private var showingBreathingExercise = false
+    @State private var showingSettings = false
     
     // HIG Semantic Dataset of your 30 requested sound variations
     let soundRegistry: [MaskingSound] = [
@@ -71,177 +68,134 @@ struct TherapyMixerView: View {
         MaskingSound(name: "Deep Ocean Undercurrents", description: "Low-frequency, sweeping rumble of massive volumes shifting deep down.", category: "Brown", systemIcon: "eye.inverse")
     ]
     
-    let modes = [
-        ("Focus", "target"),
-        ("Sleep", "moon.zzz.fill")
-    ]
-    
     var body: some View {
-        ZStack {
-            AppTheme.background.ignoresSafeArea()
-            
-            VStack(spacing: 0) {
-                // 1. Header Layout (HIG Compliant Hierarchy & Your Exact Theme Colors)
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Your Therapy Mix")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                            .foregroundColor(AppTheme.text)
-                        
-                        Text("Notch Active: \(Int(engine.calibratedFrequency)) Hz")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(AppTheme.text.opacity(0.6))
-                    }
-                    
-                    Spacer()
-                    
-                    // HIG Target Padding Check ($48x48 pt accessible bounding box)
-                    Button(action: { showingTest = true }) {
-                        Image(systemName: "waveform.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(AppTheme.accentGradient)
-                            .frame(width: 48, height: 48, alignment: .trailing)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 20)
+        NavigationStack { // Wrap the structure inside NavigationStack to host toolbar elements natively
+            ZStack {
+                AppTheme.background.ignoresSafeArea()
                 
-                ScrollView(.vertical, showsIndicators: true) {
-                    VStack(spacing: 28) {
-                        
-                        // 2. Therapy Modes Section
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Therapy Modes")
-                                .font(.headline)
+                VStack(spacing: 0) {
+                    // Header Layout (Titles only; Gear item successfully mapped to toolbar position)
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Your Therapy Mix")
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
                                 .foregroundColor(AppTheme.text)
-                                .padding(.horizontal, 20)
                             
-                            HStack(spacing: 12) {
-                                ForEach(modes, id: \.0) { mode in
-                                    ModeCard(
-                                        title: mode.0,
-                                        icon: mode.1,
-                                        isSelected: selectedMode == mode.0,
-                                        action: {
-                                            selectedMode = mode.0
-                                            if mode.0 == "Focus" {
-                                                showingBreathingExercise = true
-                                            } else if mode.0 == "Sleep" {
-                                                showingSleepView = true
-                                                if isPlaying {
-                                                    engine.startProceduralSound(type: "sleep")
-                                                }
+                            Text("Notch Active: \(Int(engine.calibratedFrequency)) Hz")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(AppTheme.text.opacity(0.6))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 20)
+                    
+                    // Sound Scroll List
+                    ScrollView(.vertical, showsIndicators: true) {
+                        VStack(spacing: 28) {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Masking Soundscapes")
+                                    .font(.headline)
+                                    .foregroundColor(AppTheme.text)
+                                    .padding(.horizontal, 20)
+                                
+                                ForEach(["White", "Pink", "Brown"], id: \.self) { cat in
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("\(cat) Spectrum Variant Therapy")
+                                            .font(.caption)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(AppTheme.text.opacity(0.4))
+                                            .textCase(.uppercase)
+                                            .padding(.horizontal, 20)
+                                        
+                                        VStack(spacing: 10) {
+                                            ForEach(soundRegistry.filter { $0.category == cat }) { sound in
+                                                SoundRowStyle(
+                                                    sound: sound,
+                                                    isSelected: selectedNoise == sound,
+                                                    action: {
+                                                        selectedNoise = sound
+                                                        if isPlaying {
+                                                            engine.startProceduralSound(type: sound.name)
+                                                        }
+                                                    }
+                                                )
                                             }
                                         }
-                                    )
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        }
-                        
-                        // 3. Masking Soundscapes Matched to your Design Framework
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Masking Soundscapes")
-                                .font(.headline)
-                                .foregroundColor(AppTheme.text)
-                                .padding(.horizontal, 20)
-                            
-                            ForEach(["White", "Pink", "Brown"], id: \.self) { cat in
-                                VStack(alignment: .leading, spacing: 8) {
-                                    //  NEW HIG-COMPLIANT CODE
-                                    Text("\(cat) Spectrum Variant Therapy")
-                                        .font(.caption)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(AppTheme.text.opacity(0.4))
-                                        .textCase(.uppercase) // Changed to the correct SwiftUI token
                                         .padding(.horizontal, 20)
-                                    
-                                    VStack(spacing: 10) {
-                                        ForEach(soundRegistry.filter { $0.category == cat }) { sound in
-                                            SoundRowStyle(
-                                                sound: sound,
-                                                isSelected: selectedNoise == sound,
-                                                action: {
-                                                    selectedNoise = sound
-                                                    if isPlaying {
-                                                        engine.startProceduralSound(type: sound.name)
-                                                    }
-                                                }
-                                            )
-                                        }
                                     }
-                                    .padding(.horizontal, 20)
                                 }
                             }
                         }
+                        .padding(.vertical, 10)
                     }
-                    .padding(.vertical, 10)
-                }
-                
-                // 4. Floating Playback System Dock (Matches your theme text parameters perfectly)
-                VStack {
-                    Divider()
-                        .background(AppTheme.text.opacity(0.08))
                     
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(selectedNoise.name)
-                                .font(.callout)
-                                .fontWeight(.semibold)
-                                .foregroundColor(AppTheme.text)
-                                .lineLimit(1)
-                            
-                            Text("\(selectedNoise.category) Masking Noise")
-                                .font(.caption)
-                                .foregroundColor(AppTheme.text.opacity(0.5))
-                        }
+                    // Bottom Playback Bar
+                    VStack {
+                        Divider()
+                            .background(AppTheme.text.opacity(0.08))
                         
-                        Spacer()
-                        
-                        Button(action: {
-                            isPlaying.toggle()
-                            if isPlaying {
-                                engine.startProceduralSound(type: selectedNoise.name)
-                            } else {
-                                engine.stopMaskingSound()
-                            }
-                        }) {
-                            ZStack {
-                                Circle()
-                                    .fill(AppTheme.text)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(selectedNoise.name)
+                                    .font(.callout)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(AppTheme.text)
+                                    .lineLimit(1)
                                 
-                                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(AppTheme.background) // Contrast safe layout flip
-                                    .offset(x: isPlaying ? 0 : 1)
+                                Text("\(selectedNoise.category) Masking Noise")
+                                    .font(.caption)
+                                    .foregroundColor(AppTheme.text.opacity(0.5))
                             }
-                            .frame(width: 54, height: 54)
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                isPlaying.toggle()
+                                if isPlaying {
+                                    engine.startProceduralSound(type: selectedNoise.name)
+                                } else {
+                                    engine.stopMaskingSound()
+                                }
+                            }) {
+                                ZStack {
+                                    Circle().fill(AppTheme.text)
+                                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(AppTheme.background)
+                                        .offset(x: isPlaying ? 0 : 1)
+                                }
+                                .frame(width: 54, height: 54)
+                            }
+                            .buttonStyle(ScaleButtonStyle())
                         }
-                        .buttonStyle(ScaleButtonStyle())
+                        .padding(.horizontal, 24)
+                        .padding(.top, 12)
+                        .padding(.bottom, UIApplication.shared.windows.first?.safeAreaInsets.bottom == 0 ? 12 : 0)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 12)
-                    .padding(.bottom, UIApplication.shared.windows.first?.safeAreaInsets.bottom == 0 ? 12 : 0)
+                    .background(AppTheme.cardBackground.edgesIgnoringSafeArea(.bottom))
                 }
-                .background(AppTheme.cardBackground.edgesIgnoringSafeArea(.bottom))
             }
-        }
-        .fullScreenCover(isPresented: $showingTest) {
-            ToneFinderView(engine: engine, isFirstTime: false)
-        }
-        .fullScreenCover(isPresented: $showingBreathingExercise) {
-            BreathingView()
-        }
-        .fullScreenCover(isPresented: $showingSleepView) {
-            SleepView(engine: engine)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 22, weight: .semibold)) // Native clean nav sizing
+                            .foregroundStyle(AppTheme.accentGradient)
+                    }
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView(engine: engine)
+            }
         }
     }
 }
 
-//HIG Elements Using 'AppTheme' Structure Nodes
 
 struct SoundRowStyle: View {
     let sound: MaskingSound
@@ -251,7 +205,6 @@ struct SoundRowStyle: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
-                // Gradient or Solid Icon Box Block (Type-Safe Fix)
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(AppTheme.text.opacity(0.05))
@@ -303,34 +256,6 @@ struct SoundRowStyle: View {
     }
 }
 
-struct ModeCard: View {
-    let title: String
-    let icon: String
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(isSelected ? AnyShapeStyle(AppTheme.background) : AnyShapeStyle(AppTheme.accentGradient))
-                
-                Text(title)
-                    .font(.callout)
-                    .fontWeight(.bold)
-                    .foregroundColor(isSelected ? AppTheme.background : AppTheme.text)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(isSelected ? AppTheme.text : AppTheme.cardBackground)
-            .cornerRadius(14)
-            .shadow(color: Color.black.opacity(0.02), radius: 6, y: 4)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -338,4 +263,3 @@ struct ScaleButtonStyle: ButtonStyle {
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
-

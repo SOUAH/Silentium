@@ -17,6 +17,7 @@ struct AppTheme {
     )
     // Make sure this is exactly 'cardBackground' with a lowercase 'c'
     static let cardBackground = Color.white.opacity(0.8)
+    static let amberCustom = Color(hex: "FFC107") // Added amberCustom color
 }
 
 extension Color {

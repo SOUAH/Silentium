@@ -2,7 +2,7 @@
 //  SharedComponents.swift
 //  Tinnitus
 //
-//  Created by Sara Riccone on 07/05/26.
+//  Created by Souha Aouididi on 07/05/26.
 //
 
 import SwiftUI

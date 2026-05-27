@@ -59,6 +59,7 @@ enum BreathMethod: String, CaseIterable, Identifiable {
 // Main Interface Layout
 struct BreathingView: View {
     @Environment(\.dismiss) var dismiss
+    @ObservedObject var engine: TinnitusAppEngine // ADD THIS LINE
     
     @State private var selectedTechnique: BreathMethod = .resonant
     @State private var isSessionActive = false
@@ -339,3 +340,9 @@ extension BreathingView {
         }
     }
 }
+
+// ADD THIS PREVIEW PROVIDER
+#Preview {
+    BreathingView(engine: TinnitusAppEngine())
+}
+

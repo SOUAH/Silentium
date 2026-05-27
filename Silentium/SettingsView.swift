@@ -2,25 +2,27 @@
 //  SettingsView.swift
 //  Tinnitus
 //
-//  Created by Souha Aouididi on 26/05/26.
+//  Created by Souha Aouididi on 07/05/26.
 //
 
 import SwiftUI
 
 struct SettingsView: View {
-    // Persistent state hooks saving user selection selections app-wide
+    @Environment(\.dismiss) var dismiss
+    @ObservedObject var engine: TinnitusAppEngine
+    
     @AppStorage("isHighContrastEnabled") private var isHighContrastEnabled = false
     @AppStorage("isHapticFeedbackEnabled") private var isHapticFeedbackEnabled = true
     @AppStorage("selectedButtonSize") private var selectedButtonSize = "Standard"
     
-    // Core navigation presentation alerts
+    @State private var showingBioRelief = false
+    @State private var showingToneFinder = false
     @State private var showingPrivacyPolicy = false
     @State private var showingTermsOfUse = false
     @State private var expandedFAQ: UUID? = nil
     
     let buttonSizes = ["Standard", "Large", "Extra Large"]
     
-    // Structured FAQ dataset entity rows
     struct FAQItem: Identifiable {
         let id = UUID()
         let question: String
@@ -38,33 +40,50 @@ struct SettingsView: View {
             AppTheme.background.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // 1. HIG Large Title Header
-                HStack {
+                // 1. Title Header Row with Clean, Frameless Dismiss Button
+                HStack(alignment: .center) {
                     Text("Settings")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundColor(AppTheme.text)
+                    
                     Spacer()
+                    
+                    Button(action: { dismiss() }) {
+                        Text("Done")
+                            .font(.body)
+                            .fontWeight(.bold)
+                            .foregroundColor(.orange) // Displays raw color link matching native iOS modals
+                            .padding(.horizontal, 8)  // Mild target breathing space without shapes
+                            .padding(.vertical, 8)
+                    }
+                    .buttonStyle(PlainButtonStyle()) // 👈 Prevents the system from adding a gray click-plate highlight
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 16)
+                .padding(.top, 24)
                 .padding(.bottom, 12)
                 
                 ScrollView(.vertical, showsIndicators: true) {
                     VStack(spacing: 22) {
                         
-                        // 2. Accessibility Group Plate
-                        SettingsSectionCard(title: "Accessibility") {
+                        // 2. Tuning Controls Panel (Launches sub-views perfectly)
+                        SettingsSectionCard(title: "Tuning Controls") {
                             VStack(spacing: 0) {
-                                ToggleRowStyle(
-                                    title: "High Contrast",
-                                    description: "Increase contrast weights for text elements.",
-                                    systemIcon: "eye.inverse",
-                                    isOn: $isHighContrastEnabled
-                                )
+                                NavigationLinkRow(title: "Find Your Tone", systemIcon: "tuningfork") {
+                                    showingToneFinder = true
+                                }
                                 
                                 Divider().background(AppTheme.text.opacity(0.06)).padding(.leading, 44)
                                 
+                                NavigationLinkRow(title: "Bio-Adaptive Relief Monitoring", systemIcon: "heart.text.square.fill") {
+                                    showingBioRelief = true
+                                }
+                            }
+                        }
+                        
+                        // 3. Accessibility Controls Card Group
+                        SettingsSectionCard(title: "Accessibility") {
+                            VStack(spacing: 0) {
                                 ToggleRowStyle(
                                     title: "Haptic Feedback",
                                     description: "Enhanced physical feedback on interactions.",
@@ -74,36 +93,7 @@ struct SettingsView: View {
                             }
                         }
                         
-                        // 3. Button Size Segment Picker
-                        SettingsSectionCard(title: "Button Size") {
-                            VStack(alignment: .leading, spacing: 14) {
-                                Text("Adjust interactive element scaling targets system-wide.")
-                                    .font(.footnote)
-                                    .foregroundColor(AppTheme.text.opacity(0.5))
-                                
-                                HStack(spacing: 8) {
-                                    ForEach(buttonSizes, id: \.self) { size in
-                                        Button(action: {
-                                            if isHapticFeedbackEnabled { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-                                            selectedButtonSize = size
-                                        }) {
-                                            Text(size)
-                                                .font(.subheadline)
-                                                .fontWeight(.bold)
-                                                .foregroundColor(selectedButtonSize == size ? AppTheme.background : AppTheme.text)
-                                                .frame(maxWidth: .infinity)
-                                                .frame(height: 40) // Target metric check
-                                                .background(selectedButtonSize == size ? AppTheme.text : AppTheme.background.opacity(0.6))
-                                                .cornerRadius(10)
-                                        }
-                                        .buttonStyle(PlainButtonStyle())
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        
-                        // 4. Frequently Asked Questions (FAQ Accordion Matrix)
+                        // 5. Frequently Asked Questions Section
                         SettingsSectionCard(title: "FAQs") {
                             VStack(spacing: 0) {
                                 ForEach(faqRegistry) { faq in
@@ -123,7 +113,7 @@ struct SettingsView: View {
                             }
                         }
                         
-                        // 5. Legal Group Links Panel
+                        // 6. Privacy & Terms Documents Panel
                         SettingsSectionCard(title: "Legal") {
                             VStack(spacing: 0) {
                                 NavigationLinkRow(title: "Privacy Policy", systemIcon: "hand.raised.fill") {
@@ -138,12 +128,12 @@ struct SettingsView: View {
                             }
                         }
                         
-                        // 6. Mandatory Medical Disclaimer Box Block
+                        // 7. Medical Legal Disclaimer Sheet Layout Box
                         VStack(alignment: .center, spacing: 8) {
                             HStack(spacing: 6) {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .font(.footnote)
-                                    .foregroundColor(.amberCustom)
+                                    .foregroundColor(AppTheme.amberCustom) // Corrected to use AppTheme.amberCustom
                                 
                                 Text("Medical Disclaimer")
                                     .font(.footnote)
@@ -158,7 +148,11 @@ struct SettingsView: View {
                                 .lineSpacing(3)
                                 .padding(.horizontal, 10)
                             
-                
+                            Text("Silentium v1.0 (Build 2)")
+                                .font(.system(size: 11))
+                                .fontWeight(.medium)
+                                .foregroundColor(AppTheme.text.opacity(0.3))
+                                .padding(.top, 14)
                         }
                         .padding(.horizontal, 20)
                         .padding(.bottom, 24)
@@ -167,13 +161,18 @@ struct SettingsView: View {
                 }
             }
         }
-        // Native Link Web/Sheet Presentation fallbacks
+        .fullScreenCover(isPresented: $showingToneFinder) {
+            ToneFinderView(engine: engine, isFirstTime: false)
+        }
+        .sheet(isPresented: $showingBioRelief) {
+            BioReliefView(engine: engine)
+        }
         .sheet(isPresented: $showingPrivacyPolicy) { SafariFallbackTemplateView(title: "Privacy Policy") }
         .sheet(isPresented: $showingTermsOfUse) { SafariFallbackTemplateView(title: "Terms of Use") }
     }
 }
 
-// Reusable Setting Element Wrappers
+//Reusable Setting UI Cards (Brings Missing View Elements Back Into Scope)
 
 struct SettingsSectionCard<Content: View>: View {
     let title: String
@@ -318,18 +317,6 @@ struct NavigationLinkRow: View {
     }
 }
 
-// Custom configuration extensions to match systemic UI components cleanly
-extension Toggle {
-    func switchToggleStyle(onColor: Color) -> some View {
-        self.toggleStyle(SwitchToggleStyle(tint: onColor))
-    }
-}
-
-extension Color {
-    static let amberCustom = Color(red: 0.96, green: 0.65, blue: 0.14) // #F3A60E
-}
-
-//Dummy Component Presenters
 struct SafariFallbackTemplateView: View {
     let title: String
     @Environment(\.presentationMode) var presentationMode
@@ -338,10 +325,9 @@ struct SafariFallbackTemplateView: View {
         NavigationView {
             ZStack {
                 AppTheme.background.ignoresSafeArea()
-                Text("App Bundle Web Asset Container for \(title).\n\nReplace this modal container call with an active Link out or a localized text stack block safely.")
+                Text("Localized document asset container for \(title).")
                     .font(.callout)
                     .foregroundColor(AppTheme.text.opacity(0.5))
-                    .multilineTextAlignment(.center)
                     .padding(32)
             }
             .navigationTitle(title)
@@ -350,3 +336,4 @@ struct SafariFallbackTemplateView: View {
         }
     }
 }
+
