@@ -39,7 +39,7 @@ struct ToneFinderView: View {
             AppTheme.background.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // 1. Header Section
+                // 1. Header Section (Cleaned up structural padding for smooth navigation text alignments)
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Find Your Tone")
@@ -50,29 +50,15 @@ struct ToneFinderView: View {
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.black.opacity(0.6))
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 10)
                     
                     Spacer()
-                    
-                    if !isFirstTime {
-                        Button(action: {
-                            engine.stopTestTone()
-                            dismiss()
-                        }) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(.black.opacity(0.7))
-                                .padding(10)
-                                .background(Circle().fill(Color.black.opacity(0.05)))
-                        }
-                        .padding(.top, 20)
-                    }
                 }
                 .padding(.horizontal, 24)
                 
                 Spacer(minLength: 30)
                 
-                // 2. Interactive Circular Dial (Replaced Sliders Card)
+                // 2. Interactive Circular Dial
                 ZStack {
                     // Track Background ring
                     Circle()
@@ -107,7 +93,7 @@ struct ToneFinderView: View {
                                     .onChanged { gestureDetails in
                                         evaluateFrequencyFromTouch(gestureDetails.location, frameSize: size)
                                     }
-                            )
+                              )
                     }
                     .frame(width: 270, height: 270)
                     
@@ -163,6 +149,21 @@ struct ToneFinderView: View {
                 .padding(.horizontal, 24)
             }
             .padding(.bottom, 20)
+        }
+        .navigationBarBackButtonHidden(true) // Hides the standard string back button text link
+        .toolbar {
+            if !isFirstTime {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        engine.stopTestTone()
+                        dismiss()
+                    }) {
+                        Image(systemName: "chevron.left") // 👈 Replaced xmark with native pop back arrow layout
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.black.opacity(0.7))
+                    }
+                }
+            }
         }
         .onAppear {
             engine.startTestTone(frequency: frequency, volume: fixedLoudnessBaseline)

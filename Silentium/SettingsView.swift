@@ -40,7 +40,7 @@ struct SettingsView: View {
             AppTheme.background.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // 1. Title Header Row with Clean, Frameless Dismiss Button
+                // 1. Title Header Row with Modern Native Xmark Dismiss Button
                 HStack(alignment: .center) {
                     Text("Settings")
                         .font(.largeTitle)
@@ -50,14 +50,13 @@ struct SettingsView: View {
                     Spacer()
                     
                     Button(action: { dismiss() }) {
-                        Text("Done")
-                            .font(.body)
-                            .fontWeight(.bold)
-                            .foregroundColor(.orange) // Displays raw color link matching native iOS modals
-                            .padding(.horizontal, 8)  // Mild target breathing space without shapes
-                            .padding(.vertical, 8)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(AppTheme.text.opacity(0.7))
+                            .padding(12)
+                            .background(Circle().fill(AppTheme.text.opacity(0.05)))
                     }
-                    .buttonStyle(PlainButtonStyle()) // 👈 Prevents the system from adding a gray click-plate highlight
+                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
@@ -69,12 +68,6 @@ struct SettingsView: View {
                         // 2. Tuning Controls Panel (Launches sub-views perfectly)
                         SettingsSectionCard(title: "Tuning Controls") {
                             VStack(spacing: 0) {
-                                NavigationLinkRow(title: "Find Your Tone", systemIcon: "tuningfork") {
-                                    showingToneFinder = true
-                                }
-                                
-                                Divider().background(AppTheme.text.opacity(0.06)).padding(.leading, 44)
-                                
                                 NavigationLinkRow(title: "Bio-Adaptive Relief Monitoring", systemIcon: "heart.text.square.fill") {
                                     showingBioRelief = true
                                 }
@@ -87,7 +80,7 @@ struct SettingsView: View {
                                 ToggleRowStyle(
                                     title: "Haptic Feedback",
                                     description: "Enhanced physical feedback on interactions.",
-                                    systemIcon: "waveform.feedback",
+                                    systemIcon: "waveform",
                                     isOn: $isHapticFeedbackEnabled
                                 )
                             }
@@ -133,8 +126,7 @@ struct SettingsView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .font(.footnote)
-                                    .foregroundColor(AppTheme.amberCustom) // Corrected to use AppTheme.amberCustom
-                                
+                                    .foregroundColor(AppTheme.amberCustom) 
                                 Text("Medical Disclaimer")
                                     .font(.footnote)
                                     .fontWeight(.bold)
@@ -165,14 +157,15 @@ struct SettingsView: View {
             ToneFinderView(engine: engine, isFirstTime: false)
         }
         .sheet(isPresented: $showingBioRelief) {
-            BioReliefView(engine: engine)
+            BioReliefView() // 👈 FIXED: Dropped manual init parameters
+                .environmentObject(engine) //  FIXED: Injected active instance via environment tree modifier
         }
         .sheet(isPresented: $showingPrivacyPolicy) { SafariFallbackTemplateView(title: "Privacy Policy") }
         .sheet(isPresented: $showingTermsOfUse) { SafariFallbackTemplateView(title: "Terms of Use") }
     }
 }
 
-//Reusable Setting UI Cards (Brings Missing View Elements Back Into Scope)
+// Reusable Setting UI Cards
 
 struct SettingsSectionCard<Content: View>: View {
     let title: String
@@ -336,4 +329,3 @@ struct SafariFallbackTemplateView: View {
         }
     }
 }
-

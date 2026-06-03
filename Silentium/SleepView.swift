@@ -8,16 +8,10 @@
 import SwiftUI
 
 struct SleepView: View {
-    @Environment(\.dismiss) var dismiss
     @ObservedObject var engine: TinnitusAppEngine
-    
-    // Player and layout selection targets
-    @State private var selectedPlayerSound: (title: String, subtitle: String, key: String)? = nil
-    @State private var showingPlayerSheet = false
-    @State private var selectedTimerMinutes: Int? = nil
     @AppStorage("sleepNotchAttenuation") private var isNotchAttenuated = true
+    @State private var selectedTimerMinutes: Int? = nil
     
-    // Custom Generated Sound Data Source (Stacked Vertically & Full Width)
     let fallAsleepSounds = [
         ("Deep Brown Noise", "Deep waterfall rumble. Perfect for masking high-frequency ringing.", "water.waves", "brown_sleep"),
         ("Sub-Delta Modulation", "Fluid 10s breathing swells that coax your brain into deep sleep.", "waveform.path.ecg", "sub_delta")
@@ -27,28 +21,10 @@ struct SleepView: View {
     
     var body: some View {
         ZStack {
-            // Immersive native pure black background
             Color.black.ignoresSafeArea()
             
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) { // Changed spacing from 5 to 0
-                    
-                    // 1. Navigation Header Row
-                    HStack {
-                        Spacer() // Pushes the button to the right
-                        
-                        Button(action: { dismiss() }) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 18, weight: .bold)) // Adjusted font size for 'xmark'
-                                .foregroundColor(.white.opacity(0.7)) // White for contrast on dark background
-                                .padding(12)
-                                .background(Circle().fill(Color.white.opacity(0.05))) // Light background for dark theme
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 10)
-                    
-                    // 2. "Fall Asleep" - Full-Width Vertical Sound Cards Stack
+                VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Fall Asleep")
                             .font(.system(size: 28, weight: .bold))
@@ -57,37 +33,16 @@ struct SleepView: View {
                         
                         VStack(spacing: 14) {
                             ForEach(fallAsleepSounds, id: \.0) { sound in
-                                // Determine if this specific sound card represents the currently selected sound.
-                                let isThisCardSelected = selectedPlayerSound?.key == sound.3
-                                // Determine if this specific sound card represents the sound that is currently playing.
-                                let isThisSoundPlaying = isThisCardSelected && engine.isPlaying
+                                let isThisCardActive = engine.activeSoundscapeName == sound.3
                                 
                                 Button(action: {
-                                    if isThisSoundPlaying {
-                                        // If this sound is currently playing, stop it (effectively pausing it).
+                                    if isThisCardActive && engine.isPlaying {
                                         engine.stopMaskingSound()
-                                        // The sheet remains presented, SleepPlayerView should update its state.
                                     } else {
-                                        // If this sound is not currently playing:
-                                        // 1. Stop any other sound that might be playing.
-                                        // 2. Set this sound as the selected one.
-                                        // 3. Start playing this sound.
-                                        
-                                        // Only stop if the engine is currently playing something, to avoid unnecessary calls.
-                                        if engine.isPlaying {
-                                            engine.stopMaskingSound()
-                                        }
-                                        
-                                        // Assign parameters for the *new* selection
-                                        selectedPlayerSound = (title: sound.0, subtitle: sound.1, key: sound.3)
-                                        showingPlayerSheet = true // Always show the sheet when a sound is selected to play
-                                        
-                                        // Instantly start generating the hardware signal thread for the new sound
                                         engine.startProceduralSound(type: sound.3)
                                     }
                                 }) {
                                     HStack(alignment: .top, spacing: 16) {
-                                        // App signature gradient icon container
                                         Image(systemName: sound.2)
                                             .font(.system(size: 24))
                                             .foregroundStyle(AppTheme.accentGradient)
@@ -108,26 +63,23 @@ struct SleepView: View {
                                         
                                         Spacer()
                                         
-                                        // Icon logic for play/pause
-                                        if isThisSoundPlaying {
+                                        if isThisCardActive && engine.isPlaying {
                                             Image(systemName: "pause.fill")
                                                 .font(.system(size: 30))
                                                 .foregroundStyle(AppTheme.accentGradient)
-                                        } else if isThisCardSelected { // This sound is selected but not playing (i.e., paused)
+                                        } else {
                                             Image(systemName: "play.fill")
                                                 .font(.system(size: 30))
                                                 .foregroundStyle(AppTheme.accentGradient)
                                         }
-                                        // If not selected, no icon is shown
                                     }
                                     .padding(20)
-                                    .frame(maxWidth: .infinity, alignment: .leading) // Stretches box horizontally full
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                     .background(Color(white: 0.12))
                                     .cornerRadius(20)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 20)
-                                            // The overlay stroke now highlights the card if it's selected, whether playing or paused.
-                                            .stroke(isThisCardSelected ? AnyShapeStyle(AppTheme.accentGradient) : AnyShapeStyle(Color.clear), lineWidth: 1.5)
+                                            .stroke(isThisCardActive ? AppTheme.accentGradient : LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom), lineWidth: 1.5)
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
@@ -136,7 +88,6 @@ struct SleepView: View {
                         .padding(.horizontal, 20)
                     }
                     
-                    // 3. Smart Automated Sleep Timers Block Card
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Sleep Timer")
                             .font(.system(size: 22, weight: .bold))
@@ -168,13 +119,11 @@ struct SleepView: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    // 4. Custom Medical Notch & Dimming Parameters Card Block
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Notch & Quiet Tuning")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundColor(.white)
                         
-                        // The Active Toggle Box (Kept intact)
                         VStack(spacing: 16) {
                             Toggle(isOn: $isNotchAttenuated) {
                                 HStack(spacing: 16) {
@@ -201,7 +150,6 @@ struct SleepView: View {
                         
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Spacer()
-                            
                             Image(systemName: "info.circle")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(.yellow)
@@ -210,7 +158,6 @@ struct SleepView: View {
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(.gray)
                                 .multilineTextAlignment(.center)
-                            
                             Spacer()
                         }
                         .padding(.top, 4)
@@ -223,22 +170,5 @@ struct SleepView: View {
                 .padding(.bottom, 30)
             }
         }
-        .navigationBarHidden(true)
-        // Modern modal sheet overlay that binds right to player states
-//        .sheet(isPresented: $showingPlayerSheet) {
-//            if let explicitSound = selectedPlayerSound {
-//                SleepPlayerView(
-//                    engine: engine,
-//                    title: explicitSound.title,
-//                    subtitle: explicitSound.subtitle,
-//                    soundType: explicitSound.key
-//                )
-//                .presentationDetents([.medium, .large])
-//            }
-//        }
     }
-}
-
-#Preview {
-    SleepView(engine: TinnitusAppEngine())
 }

@@ -1,5 +1,5 @@
 {
-  "originHash" : "465b72113fc264bbb27522d06f710e59531e5234cf5229fd04ccad5f66e20a37",
+  "originHash" : "e4abc907ad77f8fefe6ab77f22f32d37c0a753580aa87b44648cca25f14670c4",
   "pins" : [
     {
       "identity" : "audiokit",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "97a35fe04cd8e3d13b8744e1216b8673f825bef6",
         "version" : "5.7.2"
+      }
+    },
+    {
+      "identity" : "audiokitex",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AudioKit/AudioKitEX",
+      "state" : {
+        "revision" : "c33dac0f581e4ef5bf179e550394f3152aafabfd",
+        "version" : "5.7.0"
       }
     },
     {
@@ -26,6 +35,33 @@
       "state" : {
         "revision" : "4dd10370125af7f1e26d7a71b2c5929bb3c95087",
         "version" : "1.1.4"
+      }
+    },
+    {
+      "identity" : "kissfft",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AudioKit/KissFFT",
+      "state" : {
+        "revision" : "dd0636e151724b8ba2e0908eba4d99a6ff24d00c",
+        "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "soundpipeaudiokit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AudioKit/SoundpipeAudioKit.git",
+      "state" : {
+        "revision" : "d8afd31b3710a0efd5f9ecb11f1169ca493795e9",
+        "version" : "5.7.4"
+      }
+    },
+    {
+      "identity" : "tonic",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AudioKit/Tonic",
+      "state" : {
+        "revision" : "227c89ea047f928787bec571e487239547f21fe6",
+        "version" : "2.1.0"
       }
     }
   ],

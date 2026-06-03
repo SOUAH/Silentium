@@ -2,15 +2,13 @@
 //  WelcomeView.swift
 //  Tinnitus
 //
-//  Created by Sara Riccone on 07/05/26.
+//  Created by Souha Aouididi on 07/05/26.
 //
 
 import SwiftUI
 
 struct WelcomeView: View {
     @State private var phase: CGFloat = 0.0
-    
-    // This is the missing piece: it links back to the @AppStorage in MainTabView
     @Binding var hasStarted: Bool
     
     var body: some View {
@@ -20,9 +18,7 @@ struct WelcomeView: View {
             VStack(spacing: 0) {
                 headerSection
                 Spacer(minLength: 40)
-                
                 SilkWaveView(phase: phase)
-                
                 Spacer(minLength: 60)
                 featuresSection
                 Spacer(minLength: 40)
@@ -37,20 +33,20 @@ struct WelcomeView: View {
     }
     
     private var headerSection: some View {
-            VStack(spacing: 12) { // Adjusted spacing for a cleaner look
-                Text("Welcome to Silentium!")
-                    .font(.system(size: 30, weight: .bold, design: .default)) // SF Pro Bold
-                    .foregroundColor(.black)
-                
-                Text("A calm path to a quieter world.")
-                    .font(.system(size: 18, weight: .medium, design: .default)) // SF Pro Medium
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity) // Centers the VStack horizontally
-            .padding(.top, 80)
-            .padding(.horizontal, 40)
+        VStack(spacing: 12) {
+            Text("Welcome to Silentium!")
+                .font(.system(size: 30, weight: .bold))
+                .foregroundColor(.black)
+            
+            Text("A calm path to a quieter world.")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 80)
+        .padding(.horizontal, 40)
+    }
     
     private var featuresSection: some View {
         VStack(alignment: .leading, spacing: 36) {
@@ -70,7 +66,6 @@ struct WelcomeView: View {
     }
     
     private var getStartedButton: some View {
-        // Updated action to switch the view
         Button(action: {
             withAnimation {
                 hasStarted = true
@@ -92,7 +87,6 @@ struct WelcomeView: View {
     }
 }
 
-// Sub-views kept to prevent compiler timeouts
 struct SilkWaveView: View {
     let phase: CGFloat
     

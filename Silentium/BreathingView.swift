@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-//Local Breathing Technique Configuration Engine
 enum BreathMethod: String, CaseIterable, Identifiable {
     case resonant = "resonant"
     case box = "box"
@@ -17,49 +16,47 @@ enum BreathMethod: String, CaseIterable, Identifiable {
 
     var name: String {
         switch self {
-        case .resonant: "Resonant Breathing"
-        case .box: "Box Breathing"
-        case .fourSevenEight: "4-7-8 Breathing"
+        case .resonant: return "Resonant Breathing"
+        case .box: return "Box Breathing"
+        case .fourSevenEight: return "4-7-8 Breathing"
         }
     }
 
     var icon: String {
         switch self {
-        case .resonant: "waveform.path.ecg"
-        case .box: "square"
-        case .fourSevenEight: "lungs.fill"
+        case .resonant: return "waveform.path.ecg"
+        case .box: return "square"
+        case .fourSevenEight: return "lungs.fill"
         }
     }
 
     var themeColor: Color {
         switch self {
-        case .resonant: Color(red: 0.96, green: 0.34, blue: 0.42)
-        case .box: Color(red: 0.07, green: 0.60, blue: 0.56)
-        case .fourSevenEight: Color(red: 0.46, green: 0.29, blue: 0.64)
+        case .resonant: return Color(red: 0.96, green: 0.34, blue: 0.42)
+        case .box: return Color(red: 0.07, green: 0.60, blue: 0.56)
+        case .fourSevenEight: return Color(red: 0.46, green: 0.29, blue: 0.64)
         }
     }
 
     var gradient: [Color] {
         switch self {
-        case .resonant: [Color(red: 0.94, green: 0.58, blue: 0.98), Color(red: 0.96, green: 0.34, blue: 0.42)]
-        case .box: [Color(red: 0.07, green: 0.60, blue: 0.56), Color(red: 0.22, green: 0.94, blue: 0.49)]
-        case .fourSevenEight: [Color(red: 0.40, green: 0.49, blue: 0.92), Color(red: 0.46, green: 0.29, blue: 0.64)]
+        case .resonant: return [Color(red: 0.94, green: 0.58, blue: 0.98), Color(red: 0.96, green: 0.34, blue: 0.42)]
+        case .box: return [Color(red: 0.07, green: 0.60, blue: 0.56), Color(red: 0.22, green: 0.94, blue: 0.49)]
+        case .fourSevenEight: return [Color(red: 0.40, green: 0.49, blue: 0.92), Color(red: 0.46, green: 0.29, blue: 0.64)]
         }
     }
 
     var phases: (inhale: Int, hold1: Int, exhale: Int, hold2: Int) {
         switch self {
-        case .resonant: (5, 0, 5, 0)
-        case .box: (4, 4, 4, 4)
-        case .fourSevenEight: (4, 7, 8, 0)
+        case .resonant: return (5, 0, 5, 0)
+        case .box: return (4, 4, 4, 4)
+        case .fourSevenEight: return (4, 7, 8, 0)
         }
     }
 }
 
-// Main Interface Layout
 struct BreathingView: View {
-    @Environment(\.dismiss) var dismiss
-    @ObservedObject var engine: TinnitusAppEngine // ADD THIS LINE
+    @ObservedObject var engine: TinnitusAppEngine
     
     @State private var selectedTechnique: BreathMethod = .resonant
     @State private var isSessionActive = false
@@ -67,17 +64,14 @@ struct BreathingView: View {
     @State private var secondsRemainingInPhase = 0
     @State private var circleScale: CGFloat = 1.0
     @State private var circleOpacity: Double = 0.4
-    
     @State private var phaseTimer: Timer? = nil
     
     var body: some View {
         ZStack {
-            // App-standard off-white background coverage
             AppTheme.background.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // 1. Navigation Header
-                HStack(alignment: .top) {
+                HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Vagus Regulation")
                             .font(.system(size: 28, weight: .bold))
@@ -88,112 +82,95 @@ struct BreathingView: View {
                     }
                     .padding(.top, 20)
                     Spacer()
-                    
-                    Button(action: {
-                        stopBreathingSession()
-                        dismiss()
-                    }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.black.opacity(0.7))
-                            .padding(12)
-                            .background(Circle().fill(Color.black.opacity(0.05)))
-                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
+                .padding(.bottom, 10)
                 
-                // Conditional layout for when session is active or inactive
                 if !isSessionActive {
-                    // Layout for selecting technique
-                    Spacer(minLength: 20) // Spacer pushing down from header
+                    Spacer(minLength: 10)
                     
-                    // 2. Interactive Pacing Ring Circle Container
                     ZStack {
-                        // Outer Pulsing Halos
                         Circle()
                             .fill(LinearGradient(colors: selectedTechnique.gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 250, height: 250)
+                            .frame(width: 240, height: 240)
                             .scaleEffect(circleScale)
                             .opacity(circleOpacity * 0.2)
                         
                         Circle()
                             .fill(LinearGradient(colors: selectedTechnique.gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 210, height: 210)
+                            .frame(width: 200, height: 200)
                             .scaleEffect(circleScale)
                             .opacity(circleOpacity)
                         
                         VStack(spacing: 8) {
                             Image(systemName: selectedTechnique.icon)
-                                .font(.system(size: 34, weight: .semibold))
+                                .font(.system(size: 32, weight: .semibold))
                                 .foregroundStyle(.white)
                             
                             Text(currentPhaseText.uppercased())
-                                .font(.system(size: 20, weight: .bold))
+                                .font(.system(size: 18, weight: .bold))
                                 .foregroundColor(.white)
                                 .tracking(2)
                             
-                            if isSessionActive && secondsRemainingInPhase > 0 {
+                            if secondsRemainingInPhase > 0 {
                                 Text("\(secondsRemainingInPhase)s")
-                                    .font(.system(size: 26, weight: .bold, design: .monospaced))
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
                                     .foregroundColor(.white.opacity(0.9))
                             }
                         }
                     }
-                    .frame(height: 290)
+                    .frame(height: 250)
                     
-                    Spacer(minLength: 20) // Spacer pushing up towards selector
+                    Spacer(minLength: 15)
                     
-                    // 3. Dynamic Button Cards Selector Stack
-                    VStack(spacing: 12) {
-                        ForEach(BreathMethod.allCases) { technique in
-                            Button(action: {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                    selectedTechnique = technique
-                                }
-                            }) {
-                                HStack(spacing: 16) {
-                                    Image(systemName: technique.icon)
-                                        .font(.system(size: 22, weight: .semibold))
-                                        .foregroundColor(technique.themeColor)
-                                        .frame(width: 32)
-                                    
-                                    Text(technique.name)
-                                        .font(.system(size: 17, weight: .bold))
-                                        .foregroundColor(.black)
-                                    
-                                    Spacer()
-                                    
-                                    if selectedTechnique == technique {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 20, weight: .bold))
-                                            .foregroundStyle(AppTheme.accentGradient)
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 10) {
+                            ForEach(BreathMethod.allCases) { technique in
+                                Button(action: {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        selectedTechnique = technique
                                     }
+                                }) {
+                                    HStack(spacing: 16) {
+                                        Image(systemName: technique.icon)
+                                            .font(.system(size: 20, weight: .semibold))
+                                            .foregroundColor(technique.themeColor)
+                                            .frame(width: 30)
+                                        
+                                        Text(technique.name)
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(.black)
+                                        
+                                        Spacer()
+                                        
+                                        if selectedTechnique == technique {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(size: 18, weight: .bold))
+                                                .foregroundStyle(AppTheme.accentGradient)
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .frame(height: 50)
+                                    .background(selectedTechnique == technique ? Color.white : Color.white.opacity(0.4))
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(selectedTechnique == technique ? Color.black : Color.clear, lineWidth: 1.5)
+                                    )
                                 }
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 18)
-                                .background(selectedTechnique == technique ? Color.white : Color.white.opacity(0.4))
-                                .cornerRadius(16)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(selectedTechnique == technique ? Color.black : Color.clear, lineWidth: 1.5)
-                                )
-                                .shadow(color: Color.black.opacity(selectedTechnique == technique ? 0.04 : 0.0), radius: 6, y: 3)
+                                .buttonStyle(PlainButtonStyle())
                             }
-                            .buttonStyle(PlainButtonStyle())
                         }
+                        .padding(.horizontal, 24)
                     }
-                    .padding(.horizontal, 24)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .frame(maxHeight: 200)
                     
-                    Spacer(minLength: 30) // Spacer pushing up towards action button
+                    Spacer(minLength: 20)
+                    
                 } else {
-                    // Layout for active session (circle centered)
-                    Spacer() // Flexible spacer to push down from header
-                    
-                    // 2. Interactive Pacing Ring Circle Container
+                    Spacer()
                     ZStack {
-                        // Outer Pulsing Halos
                         Circle()
                             .fill(LinearGradient(colors: selectedTechnique.gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
                             .frame(width: 250, height: 250)
@@ -216,19 +193,17 @@ struct BreathingView: View {
                                 .foregroundColor(.white)
                                 .tracking(2)
                             
-                            if isSessionActive && secondsRemainingInPhase > 0 {
+                            if secondsRemainingInPhase > 0 {
                                 Text("\(secondsRemainingInPhase)s")
                                     .font(.system(size: 26, weight: .bold, design: .monospaced))
                                     .foregroundColor(.white.opacity(0.9))
                             }
                         }
                     }
-                    .frame(height: 290)
-                    
-                    Spacer() // Flexible spacer to push up from action button
+                    .frame(height: 270)
+                    Spacer()
                 }
                 
-                // 4. Primary Master Session Action Controller
                 Button(action: {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         isSessionActive.toggle()
@@ -243,29 +218,26 @@ struct BreathingView: View {
                         Image(systemName: isSessionActive ? "stop.fill" : "play.fill")
                         Text(isSessionActive ? "End Exercise" : "Begin Session")
                     }
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 20)
+                    .frame(height: 54)
                     .background(
                         Capsule()
                             .fill(AppTheme.accentGradient)
-                            .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
+                            .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                     )
                 }
+                .buttonStyle(PlainButtonStyle())
                 .padding(.horizontal, 24)
-                .padding(.bottom, 24)
+                .padding(.bottom, 16)
             }
         }
     }
-}
-
-// Core Execution Engine Controllers
-extension BreathingView {
     
     private func startBreathingSession() {
         let cyclePhases = selectedTechnique.phases
-        var currentCycleIndex = 0 // 0: Inhale, 1: Hold1, 2: Exhale, 3: Hold2
+        var currentCycleIndex = 0
         
         func advancePhase() {
             guard isSessionActive else { return }
@@ -280,12 +252,12 @@ extension BreathingView {
             case 0:
                 phaseDuration = cyclePhases.inhale
                 phaseName = "Inhale"
-                targetScale = 1.3
+                targetScale = 1.25
                 targetOpacity = 0.8
             case 1:
                 phaseDuration = cyclePhases.hold1
                 phaseName = cyclePhases.hold1 > 0 ? "Hold" : ""
-                targetScale = 1.3
+                targetScale = 1.25
                 targetOpacity = 0.8
             case 2:
                 phaseDuration = cyclePhases.exhale
@@ -325,14 +297,13 @@ extension BreathingView {
                 }
             }
         }
-        
         advancePhase()
     }
     
     private func stopBreathingSession() {
         phaseTimer?.invalidate()
         phaseTimer = nil
-        withAnimation(.easeOut(duration: 0.3)) {
+        withAnimation(.fileUnwrappedOptional) {
             currentPhaseText = "Ready"
             secondsRemainingInPhase = 0
             circleScale = 1.0
@@ -341,8 +312,6 @@ extension BreathingView {
     }
 }
 
-// ADD THIS PREVIEW PROVIDER
-#Preview {
-    BreathingView(engine: TinnitusAppEngine())
+extension Animation {
+    static var fileUnwrappedOptional: Animation { .easeOut(duration: 0.3) }
 }
-

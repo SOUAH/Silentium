@@ -13,28 +13,42 @@ struct MainTabView: View {
     @StateObject private var appEngine = TinnitusAppEngine()
     
     var body: some View {
-        if !hasCompletedOnboarding {
-            if !showingFirstTimeTest {
-                WelcomeView(hasStarted: $showingFirstTimeTest)
+        Group {
+            if !hasCompletedOnboarding {
+                // Onboarding Workflow Routing
+                if !showingFirstTimeTest {
+                    WelcomeView(hasStarted: $showingFirstTimeTest)
+                } else {
+                    ToneFinderView(engine: appEngine, isFirstTime: true, onComplete: {
+                        hasCompletedOnboarding = true
+                    })
+                }
             } else {
-                ToneFinderView(engine: appEngine, isFirstTime: true, onComplete: {
-                    hasCompletedOnboarding = true
-                })
+                // Core Tab Navigation Architecture
+                TabView {
+                    TherapyMixerView() // 👈 FIXED: Dropped manual init parameters
+                        .tabItem { Label("Mixer", systemImage: "slider.horizontal.3") }
+                    
+                    BreathingView(engine: appEngine)
+                        .tabItem { Label("Focus", systemImage: "target") }
+                    
+                    SleepView(engine: appEngine)
+                        .tabItem { Label("Sleep", systemImage: "moon.zzz.fill") }
+                }
+                .accentColor(.orange)
+                .environmentObject(appEngine) // 👈 Injects engine globally to all tabs and nested child modals
+                // Full-Screen Cover Panel matching Apple Music Presentation Styles
+                .fullScreenCover(isPresented: $appEngine.isPlayerPresentedFullScreen) {
+                    if let trackMeta = appEngine.currentSelectedSoundMetadata {
+                        SleepPlayerView(
+                            engine: appEngine,
+                            title: trackMeta.title,
+                            subtitle: trackMeta.subtitle,
+                            soundType: trackMeta.key
+                        )
+                    }
+                }
             }
-        } else {
-            // Re-architected: Only 3 primary view tracks left in the core interface dock
-            TabView {
-                TherapyMixerView(engine: appEngine)
-                    .tabItem { Label("Mixer", systemImage: "slider.horizontal.3") }
-                
-                BreathingView(engine: appEngine)
-                    .tabItem { Label("Focus", systemImage: "target") }
-                
-                SleepView(engine: appEngine)
-                    .tabItem { Label("Sleep", systemImage: "moon.zzz.fill") }
-            }
-            .accentColor(.orange)
-            .environmentObject(appEngine)
         }
     }
 }

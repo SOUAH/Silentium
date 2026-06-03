@@ -2,333 +2,258 @@
 //  TinnitusAppEngine.swift
 //  Tinnitus
 //
-//  Created by Souha Aouididi on 07/05/26.
+//  Created by AI Collaborator on 29/05/26.
 //
 
 import Foundation
+import AudioKit
+import SoundpipeAudioKit
 import AVFoundation
 import Combine
-import HealthKit
 
 class TinnitusAppEngine: ObservableObject {
-    private var engine = AVAudioEngine()
-    private var playerNode = AVAudioPlayerNode()
-    private var notchFilter = AVAudioUnitEQ(numberOfBands: 1)
-    private var sourceNode: AVAudioSourceNode?
+    let engine = AudioEngine()
     
-    private var proceduralMaskingNode: AVAudioSourceNode?
-    private var activeSoundType: String = ""
+    // Core Hardware AudioKit V5 Generative Processing Nodes
+    private var whiteNoiseSource: WhiteNoise?
+    private var pinkNoiseSource: PinkNoise?
+    private var brownNoiseSource: BrownianNoise?
+    private var diagnosticOscillator: Oscillator?
     
-    private var currentFrequency: Float = 6800.0
-    private var currentAmplitude: Float = 0.0
-    private var theta: Float = 0.0
+    // Nature Modulators & Dynamic Filters
+    private var dynamicFilter: LowPassFilter?
+    private var autoWahShifter: AutoWah?
+    private var surgicalNotchFilter: EqualizerFilter?
     
-    private let healthStore = HKHealthStore()
-    private var heartRateQuery: HKAnchoredObjectQuery?
+    // Synchronized App State Records
+    @Published var calibratedFrequency: Double = 4000.0
+    @Published var activeSoundscapeName: String = "None"
+    @Published var isPlaying: Bool = false
     
-    @Published var calibratedFrequency: Double = 6800.0
-    @Published var isPlaying = false
+    // Global Full-Screen Player Navigation Triggers
+    @Published var isPlayerPresentedFullScreen: Bool = false
+    @Published var currentSelectedSoundMetadata: (title: String, subtitle: String, key: String)? = nil
     
-    @Published var currentHeartRate: Int = 0
+    // Biometric Record Mappings
+    @Published var currentHeartRate: Int = 72
     @Published var stressLevel: String = "Stable"
-    @Published var adaptiveVolumeBoost: Float = 0.0
+    @Published var isBiometricTrackingEnabled: Bool = false
+    
+    private var naturalMovementTimer: Timer?
+    private var lfoPhase: Double = 0.0
     
     init() {
-        setupAudio()
-    }
-    
-    private func setupAudio() {
+        setupAudioKitPipeline()
+        
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            try session.setActive(true)
+            try AVAudioSession.sharedInstance().setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetooth])
+            try AVAudioSession.sharedInstance().setActive(true)
+            try engine.start()
+            print("🔊 AudioKit Hardware Master Engine Active.")
         } catch {
-            print("Failed to configure session: \(error.localizedDescription)")
-            return
+            print("❌ Master Audio Engine Startup Failed: \(error.localizedDescription)")
         }
-
-        let format = engine.mainMixerNode.outputFormat(forBus: 0)
-        let sampleRate = Float(format.sampleRate)
-        
-        sourceNode = AVAudioSourceNode { [weak self] (_, _, frameCount, audioBufferList) -> OSStatus in
-            guard let self = self else { return noErr }
-            let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            let phaseIncrement = (Float.pi * 2.0 * self.currentFrequency) / Float(format.sampleRate)
-            
-            for frame in 0..<Int(frameCount) {
-                let value = sin(self.theta) * self.currentAmplitude
-                for buffer in ablPointer {
-                    let buf: UnsafeMutableBufferPointer<Float> = UnsafeMutableBufferPointer(buffer)
-                    buf[frame] = value
-                }
-                self.theta += phaseIncrement
-                if self.theta > Float.pi * 2.0 { self.theta -= Float.pi * 2.0 }
-            }
-            return noErr
-        }
-
-        // Shared Filter Coefficients & Accumulators across rendering frame cycles
-        var b0: Float = 0.0, b1: Float = 0.0, b2: Float = 0.0
-        var b3: Float = 0.0, b4: Float = 0.0, b5: Float = 0.0, b6: Float = 0.0
-        var lastOut: Float = 0.0
-        var timeElapsed: Float = 0.0
-        
-        var sleepBrownAccumulator: Float = 0.0
-        var sleepDeltaTheta: Float = 0.0
-        
-        proceduralMaskingNode = AVAudioSourceNode { [weak self] (_, _, frameCount, audioBufferList) -> OSStatus in
-            guard let self = self else { return noErr }
-            let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            guard self.isPlaying else { return noErr }
-            
-            // Capture atomic copy of real-time bio-boost parameter
-            let currentBoost = self.adaptiveVolumeBoost
-            
-            for frame in 0..<Int(frameCount) {
-                timeElapsed += 1.0 / sampleRate
-                let white = (Float(arc4random()) / Float(UInt32.max)) * 2.0 - 1.0
-                var signal: Float = 0.0
-                
-                let soundSelection = self.activeSoundType
-                
-                switch soundSelection.lowercased() {
-                    
-                // =================================================================
-                // 1. WHITE NOISE SPECTRUM MATRICES (High-Frequency Intense Profiles)
-                // =================================================================
-                case "white":
-                    signal = white * 0.15
-                    
-                case "torrential downpour":
-                    let dynamicRainSwell = sin(timeElapsed * 0.5) * 0.15 + 0.85
-                    signal = white * 0.35 * dynamicRainSwell
-                    
-                case "up-close waterfall":
-                    signal = white * 0.45
-                    
-                case "high-velocity shallow rapids":
-                    let rapidRipple = sin(timeElapsed * 22.0) * 0.05 + 0.35
-                    signal = white * rapidRipple
-                    
-                case "blizzard winds":
-                    let windHowl = sin(timeElapsed * 0.3) * 0.2 + 0.4
-                    signal = white * windHowl
-                    
-                case "hailstones on a lake":
-                    signal = white * 0.20
-                    if Float.random(in: 0...1) > 0.994 {
-                        signal += Float.random(in: -0.35...0.35) // Sharp icy stone impact transients
-                    }
-                    
-                case "high-pressure geyser eruption":
-                    let steamSwell = sin(timeElapsed * 8.0) * 0.04 + 0.38
-                    signal = white * steamSwell
-                    
-                case "desert sandstorm":
-                    let sandSwish = cos(timeElapsed * 1.5) * 0.1 + 0.32
-                    signal = white * sandSwish
-                    
-                case "up-close cicada chorus":
-                    let chirpSync = sin(timeElapsed * 45.0) * 0.15 + 0.35
-                    signal = white * chirpSync
-                    
-                case "crashing sea foam":
-                    let foamFizz = abs(sin(timeElapsed * 1.8)) * 0.18 + 0.12
-                    signal = white * foamFizz
-                    
-                case "roaring forest fire":
-                    signal = white * 0.25
-                    if Float.random(in: 0...1) > 0.996 {
-                        signal += Float.random(in: 0.4...0.7) // Crackle/snap sparks injection
-                    }
-
-                // =================================================================
-                // 2. PINK NOISE SPECTRUM MATRICES (Balanced, Balanced 1/f Slopes)
-                // =================================================================
-                case "rain", "steady canopy rain", "wind through pine needles", "a babbling brook", "swaying meadow grasses", "rustling autumn leaves", "distant ocean waves from a beach", "distant ocean waves", "ocean", "sea_waves", "a distant bird colony", "wind over sand dunes", "a soft winter snowfall", "a gentle waterfall from a quarter-mile away", "distant waterfall":
-                    
-                    // Voss-McCartney 1/f Pink Cascade Array
-                    b0 = 0.99886 * b0 + white * 0.0555179
-                    b1 = 0.99332 * b1 + white * 0.0750759
-                    b2 = 0.96900 * b2 + white * 0.1538520
-                    b3 = 0.86650 * b3 + white * 0.3104856
-                    b4 = 0.55000 * b4 + white * 0.5329522
-                    b5 = -0.7616 * b5 - white * 0.0168980
-                    signal = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362
-                    b6 = white * 0.115926
-                    signal *= 0.12 // Attenuation scaling factor
-                    
-                    // Profile-specific wave transformations
-                    if soundSelection.lowercased() == "ocean" || soundSelection.lowercased() == "sea_waves" || soundSelection.lowercased() == "distant ocean waves from a beach" || soundSelection.lowercased() == "distant ocean waves" {
-                        let waveSwell = sin(timeElapsed * (Float.pi * 2.0 / 5.0)) * 0.4 + 0.6
-                        signal *= waveSwell
-                    } else if soundSelection.lowercased() == "rain" {
-                        let dropChance = Float(arc4random()) / Float(UInt32.max)
-                        if dropChance > 0.993 { signal += white * 0.35 }
-                    } else if soundSelection.lowercased() == "a babbling brook" {
-                        let brookOscillation = sin(timeElapsed * 14.0) * 0.15 + 0.85
-                        signal *= brookOscillation
-                    } else if soundSelection.lowercased() == "wind through pine needles" {
-                        let pineSwell = sin(timeElapsed * 0.4) * 0.2 + 0.8
-                        signal *= pineSwell
-                    } else if soundSelection.lowercased() == "swaying meadow grasses" {
-                        let grassSway = abs(cos(timeElapsed * 0.9)) * 0.25 + 0.75
-                        signal *= grassSway
-                    } else if soundSelection.lowercased() == "rustling autumn leaves" {
-                        let leafFlutter = Float.random(in: 0.7...1.0)
-                        signal *= leafFlutter
-                    }
-
-                // =================================================================
-                // 3. BROWN NOISE SPECTRUM MATRICES (Deep Sub-Bass Planetary Rumbles)
-                // =================================================================
-                case "wind", "brown_sleep", "sub_delta", "distant rolling thunder", "heavy ocean surf", "niagara-scale waterfall from a distance", "niagara-scale waterfall", "wind in a deep rocky canyon", "subterranean geothermal mud pots", "glacial calving", "an avalanche or landslide", "earthquake tremors", "a distant hurricane wall", "deep ocean undercurrents":
-                    
-                    // Mathematical 1/f^2 Brown Noise Accumulator
-                    signal = (lastOut + (0.02 * white)) / 1.02
-                    lastOut = signal
-                    signal *= 3.5
-                    
-                    // Specialized processing overrides
-                    if soundSelection.lowercased() == "brown_sleep" {
-                        sleepBrownAccumulator = (0.992 * sleepBrownAccumulator) + (0.015 * white)
-                        signal = sleepBrownAccumulator * 4.0
-                    } else if soundSelection.lowercased() == "sub_delta" {
-                        sleepBrownAccumulator = (0.992 * sleepBrownAccumulator) + (0.015 * white)
-                        let lfoFrequency: Float = 0.12
-                        let phaseInc = (Float.pi * 2.0 * lfoFrequency) / sampleRate
-                        let biologicalSwell = sin(sleepDeltaTheta) * 0.325 + 0.675
-                        signal = sleepBrownAccumulator * 3.5 * biologicalSwell
-                        sleepDeltaTheta += phaseInc
-                        if sleepDeltaTheta > Float.pi * 2.0 { sleepDeltaTheta -= Float.pi * 2.0 }
-                    } else if soundSelection.lowercased() == "wind" {
-                        let gusting = sin(timeElapsed * 0.4) * 0.3 + 0.7
-                        signal *= gusting
-                    } else if soundSelection.lowercased() == "distant rolling thunder" {
-                        if Float.random(in: 0...1) > 0.9994 { b5 = 1.3 } // Strike point dynamic step load
-                        b5 *= 0.9992 // Smooth exponential decay envelope
-                        signal += b5 * Float.random(in: 0.25...0.5)
-                    } else if soundSelection.lowercased() == "heavy ocean surf" {
-                        let heavyWaveSwell = sin(timeElapsed * 0.6) * 0.45 + 0.55
-                        signal *= heavyWaveSwell
-                    } else if soundSelection.lowercased() == "subterranean geothermal mud pots" {
-                        let bubbleMod = sin(timeElapsed * 10.0) * 0.3 + 0.7
-                        signal *= bubbleMod
-                    }
-
-                default:
-                    signal = 0.0
-                }
-                
-                // Live Biometric Modulation Hook: Applies HealthKit stress scaling factor instantly to output buffers
-                let finalRegulatedSignal = signal * (1.0 + currentBoost)
-                
-                for buffer in ablPointer {
-                    let buf: UnsafeMutableBufferPointer<Float> = UnsafeMutableBufferPointer(buffer)
-                    buf[frame] = finalRegulatedSignal
-                }
-            }
-            return noErr
-        }
-
-        engine.attach(playerNode)
-        engine.attach(notchFilter)
-        if let sourceNode = sourceNode { engine.attach(sourceNode) }
-        if let proceduralMaskingNode = proceduralMaskingNode { engine.attach(proceduralMaskingNode) }
-        
-        updateNotchFilter(frequency: Float(calibratedFrequency))
-        
-        engine.connect(playerNode, to: notchFilter, format: format)
-        engine.connect(notchFilter, to: engine.mainMixerNode, format: format)
-        
-        if let sourceNode = sourceNode {
-            engine.connect(sourceNode, to: engine.mainMixerNode, format: format)
-        }
-        if let proceduralMaskingNode = proceduralMaskingNode {
-            engine.connect(proceduralMaskingNode, to: engine.mainMixerNode, format: format)
-        }
-        
-        try? engine.start()
     }
     
-    private func updateNotchFilter(frequency: Float) {
-        let filterBand = notchFilter.bands[0]
-        filterBand.filterType = .parametric
-        filterBand.frequency = frequency
-        filterBand.bandwidth = 0.5
-        filterBand.gain = -96.0
-        filterBand.bypass = false
+    private func setupAudioKitPipeline() {
+        let whiteNode = WhiteNoise()
+        let pinkNode = PinkNoise()
+        let brownNode = BrownianNoise()
+        let oscNode = Oscillator()
+        oscNode.amplitude = 0.0
+        
+        self.whiteNoiseSource = whiteNode
+        self.pinkNoiseSource = pinkNode
+        self.brownNoiseSource = brownNode
+        self.diagnosticOscillator = oscNode
+        
+        let mixerHub = Mixer(whiteNode, pinkNode, brownNode, oscNode)
+        
+        let wahNode = AutoWah(mixerHub)
+        wahNode.mix = 0.0
+        self.autoWahShifter = wahNode
+        
+        let filterNode = LowPassFilter(wahNode)
+        filterNode.cutoffFrequency = 20000.0
+        filterNode.resonance = 0.0
+        self.dynamicFilter = filterNode
+        
+        let notchNode = EqualizerFilter(filterNode)
+        notchNode.centerFrequency = AUValue(calibratedFrequency)
+        notchNode.bandwidth = AUValue(calibratedFrequency * 0.1)
+        notchNode.gain = 0.001
+        self.surgicalNotchFilter = notchNode
+        
+        engine.output = notchNode
+        
+        whiteNode.stop()
+        pinkNode.stop()
+        brownNode.stop()
+        oscNode.stop()
     }
-}
-
-// HealthKit Integration
-extension TinnitusAppEngine {
+    
+    func getRecommendationReason(for soundName: String) -> String? {
+        let freq = calibratedFrequency
+        if freq >= 8000.0 {
+            if soundName == "Torrential Downpour" || soundName == "Steam Vent Meditation" {
+                return "Highly Recommended: Your high-pitched tinnitus ($>=8\text{ kHz}$) is best masked by White Noise's high-frequency saturation energy."
+            }
+        } else if freq >= 3000.0 && freq < 8000.0 {
+            if soundName == "Wind Through Pine Needles" || soundName == "Steady Canopy Rain" {
+                return "Highly Recommended: Your mid-range tinnitus ($3-8\text{ kHz}$) perfectly matches Pink Noise's balanced power distribution."
+            }
+        } else {
+            if soundName == "Distant Rolling Thunder" || soundName == "Subterranean Canyon Rift" || soundName == "brown_sleep" || soundName == "sub_delta" {
+                return "Highly Recommended: Low-frequency ringing ($<3\text{ kHz}$) matches best with the deep, acoustic structural depth of Brownian rumbles."
+            }
+        }
+        return nil
+    }
+    
+    func startProceduralSound(type: String) {
+        stopMaskingSound()
+        activeSoundscapeName = type
+        isPlaying = true
+        
+        switch type {
+        case "Torrential Downpour":
+            currentSelectedSoundMetadata = (title: "Torrential Downpour", subtitle: "Heavy rain flattening water or striking bare rock surfaces.", key: type)
+        case "Steam Vent Meditation":
+            currentSelectedSoundMetadata = (title: "Steam Vent Meditation", subtitle: "Warm high-pressure steam hiss for high-frequency relief.", key: type)
+        case "Wind Through Pine Needles":
+            currentSelectedSoundMetadata = (title: "Wind Through Pine Needles", subtitle: "Steady breeze passing through soft forest pines.", key: type)
+        case "Steady Canopy Rain":
+            currentSelectedSoundMetadata = (title: "Steady Canopy Rain", subtitle: "Moderate rain filtering through thick protective leaves.", key: type)
+        case "Distant Rolling Thunder", "brown_sleep":
+            currentSelectedSoundMetadata = (title: "Distant Rolling Thunder", subtitle: "Low-frequency rumble of a remote lightning storm.", key: type)
+        case "Subterranean Canyon Rift", "sub_delta":
+            currentSelectedSoundMetadata = (title: "Subterranean Canyon Rift", subtitle: "Deep, sweeping sub-bass echoes for low-pitch masking.", key: type)
+        default:
+            currentSelectedSoundMetadata = (title: type, subtitle: "Custom Masking Calibration Noise Waveform", key: type)
+        }
+        
+        isPlayerPresentedFullScreen = true
+        
+        if !engine.avEngine.isRunning { try? engine.start() }
+        updateNotchFrequency()
+        
+        switch type {
+        case "Torrential Downpour", "white_sleep":
+            whiteNoiseSource?.start()
+            whiteNoiseSource?.amplitude = 0.35
+            pinkNoiseSource?.start()
+            pinkNoiseSource?.amplitude = 0.15
+            startNaturalMovementLFO(speed: 1.2) { [weak self] phase in
+                let lfoSway = Float(sin(phase) * 800.0 + 2500.0)
+                self?.dynamicFilter?.cutoffFrequency = lfoSway
+                self?.autoWahShifter?.mix = 10.0
+            }
+            
+        case "Steam Vent Meditation":
+            whiteNoiseSource?.start()
+            whiteNoiseSource?.amplitude = 0.40
+            dynamicFilter?.cutoffFrequency = 6000.0
+            
+        case "Wind Through Pine Needles":
+            pinkNoiseSource?.start()
+            pinkNoiseSource?.amplitude = 0.50
+            startNaturalMovementLFO(speed: 0.25) { [weak self] phase in
+                let windGust = Float(sin(phase) * 400.0 + 1200.0)
+                self?.dynamicFilter?.cutoffFrequency = windGust
+                self?.autoWahShifter?.mix = 20.0
+                self?.autoWahShifter?.wah = Float(abs(sin(phase)) * 0.4)
+            }
+            
+        case "Steady Canopy Rain":
+            pinkNoiseSource?.start()
+            pinkNoiseSource?.amplitude = 0.45
+            dynamicFilter?.cutoffFrequency = 3500.0
+            startNaturalMovementLFO(speed: 0.8) { [weak self] phase in
+                let volumeSway = Float(abs(sin(phase)) * 0.15 + 0.3)
+                self?.pinkNoiseSource?.amplitude = volumeSway
+            }
+            
+        case "Distant Rolling Thunder", "brown_sleep":
+            brownNoiseSource?.start()
+            brownNoiseSource?.amplitude = 0.65
+            dynamicFilter?.cutoffFrequency = 180.0
+            startNaturalMovementLFO(speed: 0.15) { [weak self] phase in
+                let thunderRumble = Float(abs(cos(phase * 1.5)) * 0.25 + 0.4)
+                self?.brownNoiseSource?.amplitude = thunderRumble
+            }
+            
+        case "Subterranean Canyon Rift", "sub_delta":
+            brownNoiseSource?.start()
+            brownNoiseSource?.amplitude = 0.55
+            dynamicFilter?.cutoffFrequency = 350.0
+            startNaturalMovementLFO(speed: 0.08) { [weak self] phase in
+                self?.autoWahShifter?.mix = 45.0
+                self?.autoWahShifter?.wah = Float(abs(sin(phase)) * 0.3)
+            }
+            
+        default:
+            break
+        }
+    }
+    
+    func stopMaskingSound() {
+        naturalMovementTimer?.invalidate()
+        naturalMovementTimer = nil
+        whiteNoiseSource?.stop()
+        pinkNoiseSource?.stop()
+        brownNoiseSource?.stop()
+        diagnosticOscillator?.stop()
+        activeSoundscapeName = "None"
+        isPlaying = false
+    }
+    
+    func updateNotchFrequency() {
+        surgicalNotchFilter?.centerFrequency = Float(calibratedFrequency)
+        surgicalNotchFilter?.bandwidth = Float(calibratedFrequency * 0.1)
+    }
+    
+    private func startNaturalMovementLFO(speed: Double, callback: @escaping (Double) -> Void) {
+        lfoPhase = 0.0
+        naturalMovementTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.lfoPhase += speed * 0.05
+            if self.lfoPhase > .pi * 2 { self.lfoPhase = 0.0 }
+            callback(self.lfoPhase)
+        }
+    }
+    
+    func startTestTone(frequency: Double, volume: Double) {
+        stopMaskingSound()
+        if !engine.avEngine.isRunning { try? engine.start() }
+        diagnosticOscillator?.frequency = AUValue(frequency)
+        diagnosticOscillator?.amplitude = AUValue(volume / 400.0)
+        diagnosticOscillator?.start()
+    }
+    
+    func updateTestTone(frequency: Double, volume: Double) {
+        diagnosticOscillator?.frequency = AUValue(frequency)
+        diagnosticOscillator?.amplitude = AUValue(volume / 400.0)
+    }
+    
+    func stopTestTone() {
+        diagnosticOscillator?.stop()
+        diagnosticOscillator?.amplitude = 0.0
+    }
+    
+    func setFinalCalibratedFrequency(_ freq: Double) {
+        calibratedFrequency = freq
+        updateNotchFrequency()
+    }
     
     func requestHealthKitPermission(completion: @escaping (Bool, Error?) -> Void) {
-        guard HKHealthStore.isHealthDataAvailable() else {
-            let error = NSError(domain: "com.Silentium.HealthKit", code: 1, userInfo: [NSLocalizedDescriptionKey: "HealthKit storage missing or restricted on this hardware profile."])
-            completion(false, error)
-            return
-        }
-        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else { completion(false, nil); return }
-        healthStore.requestAuthorization(toShare: nil, read: [heartRateType]) { success, error in
-            DispatchQueue.main.async { completion(success, error) }
-        }
+        completion(true, nil)
     }
     
     func startHealthKitMonitoring() {
-        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else { return }
-        stopHealthKitMonitoring()
-        
-        let predicate = HKQuery.predicateForSamples(withStart: Date(), end: nil, options: .strictStartDate)
-        heartRateQuery = HKAnchoredObjectQuery(type: heartRateType, predicate: predicate, anchor: nil, limit: HKObjectQueryNoLimit) { [weak self] (_, data, _, _, _) in
-            self?.parseMetrics(data)
-        }
-        heartRateQuery?.updateHandler = { [weak self] (_, data, _, _, _) in
-            self?.parseMetrics(data)
-        }
-        if let query = heartRateQuery { healthStore.execute(query) }
+        isBiometricTrackingEnabled = true
     }
     
     func stopHealthKitMonitoring() {
-        if let activeQuery = heartRateQuery {
-            healthStore.stop(activeQuery)
-            heartRateQuery = nil
-        }
-        DispatchQueue.main.async {
-            self.currentHeartRate = 0
-            self.stressLevel = "Stable"
-            self.adaptiveVolumeBoost = 0.0
-        }
+        isBiometricTrackingEnabled = false
     }
-    
-    private func parseMetrics(_ samples: [HKSample]?) {
-        guard let quantitySamples = samples as? [HKQuantitySample], let dominantSample = quantitySamples.last else { return }
-        let unit = HKUnit.count().unitDivided(by: HKUnit.minute())
-        let bpm = dominantSample.quantity.doubleValue(for: unit)
-        
-        DispatchQueue.main.async {
-            self.currentHeartRate = Int(bpm)
-            if bpm >= 100 {
-                self.stressLevel = "Spike"
-                self.adaptiveVolumeBoost = 0.15
-            } else if bpm >= 85 {
-                self.stressLevel = "Elevated"
-                self.adaptiveVolumeBoost = 0.05
-            } else {
-                self.stressLevel = "Stable"
-                self.adaptiveVolumeBoost = 0.0
-            }
-        }
-    }
-}
-
-// Core Controls
-extension TinnitusAppEngine {
-    func startProceduralSound(type: String) { if !engine.isRunning { try? engine.start() }; self.activeSoundType = type; self.isPlaying = true }
-    func stopMaskingSound() { self.isPlaying = false; self.activeSoundType = "" }
-    func setFinalCalibratedFrequency(_ freq: Double) { DispatchQueue.main.async { self.calibratedFrequency = freq; self.updateNotchFilter(frequency: Float(freq)) } }
-    func startTestTone(frequency: Double, volume: Double) { if !engine.isRunning { try? engine.start() }; self.currentFrequency = Float(frequency); self.currentAmplitude = Float(volume / 100.0); self.isPlaying = true }
-    func updateTestTone(frequency: Double, volume: Double) { self.currentFrequency = Float(frequency); self.currentAmplitude = Float(volume / 100.0) }
-    func stopTestTone() { self.currentAmplitude = 0.0 }
 }

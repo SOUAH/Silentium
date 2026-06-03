@@ -18,21 +18,37 @@ struct HeaderComponent: View {
     }
 }
 
-struct MetricView: View {
-    let icon: String
-    let label: String
+struct MetricRow: View {
+    let title: String
     let value: String
-    let color: Color // If this causes an error, use 'Color' explicitly
+    let statusColor: Color
+    let icon: String
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: icon).foregroundColor(color)
-            Text(label).font(.caption).foregroundColor(AppTheme.text) // Changed to AppTheme.text
-            Text(value).font(.headline).foregroundColor(AppTheme.text) // Added AppTheme.text
+        HStack {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundColor(.black.opacity(0.6))
+                .frame(width: 30)
+            
+            Text(title)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.black.opacity(0.8))
+            
+            Spacer()
+            
+            Text(value)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(statusColor)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(18)
+    }
+}
+
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
@@ -49,7 +65,7 @@ struct SliderRow: View {
                 Text(label)
                     .font(.subheadline)
                     .bold()
-                    .foregroundColor(.black) // Added foregroundColor(.black)
+                    .foregroundColor(.black)
                 Spacer()
                 Text("\(Int(value)) \(unit)").font(.caption).monospacedDigit()
             }

@@ -2,7 +2,7 @@
 //  Colors.swift
 //  Tinnitus
 //
-//  Created by Sara Riccone on 07/05/26.
+//  Created by Souha Aouididi on 07/05/26.
 //
 
 import SwiftUI
@@ -15,9 +15,8 @@ struct AppTheme {
         startPoint: .leading,
         endPoint: .trailing
     )
-    // Make sure this is exactly 'cardBackground' with a lowercase 'c'
     static let cardBackground = Color.white.opacity(0.8)
-    static let amberCustom = Color(hex: "FFC107") // Added amberCustom color
+    static let amberCustom = Color(hex: "FFC107")
 }
 
 extension Color {
@@ -31,3 +30,4 @@ extension Color {
         self.init(red: r, green: g, blue: b)
     }
 }
+

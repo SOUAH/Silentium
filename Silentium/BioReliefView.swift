@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct BioReliefView: View {
-    @ObservedObject var engine: TinnitusAppEngine
+    @EnvironmentObject var engine: TinnitusAppEngine // Resolves global shared state context
     @State private var isBreathing = false
     @State private var showingPermissionAlert = false
     @State private var alertErrorMessage = ""
@@ -43,7 +43,7 @@ struct BioReliefView: View {
                     
                     Circle()
                         .stroke(
-                            engine.stressLevel == "Spike" ? AnyShapeStyle(Color.red.opacity(0.6)) : AnyShapeStyle(AppTheme.accentGradient),
+                            engine.stressLevel == "Spike" ? Color.red.opacity(0.6) : AppTheme.text,
                             style: StrokeStyle(lineWidth: 20, lineCap: .round)
                         )
                         .frame(width: 190, height: 190)
@@ -85,7 +85,7 @@ struct BioReliefView: View {
                         }
                     }
                     .tint(.orange)
-                    .onChange(of: isTrackingEnabledLocal) { newValue,n in
+                    .onChange(of: isTrackingEnabledLocal) { oldValue, newValue in
                         if newValue {
                             engine.requestHealthKitPermission { success, error in
                                 if success {
@@ -146,6 +146,8 @@ struct BioReliefView: View {
         }
     }
     
+    // MARK: - Re-added Private Clinical Helper Methods (Fixes Scope Errors)
+    
     private func stressLevelColor(for level: String) -> Color {
         guard isTrackingEnabledLocal else { return .gray }
         switch level {
@@ -163,32 +165,6 @@ struct BioReliefView: View {
         case "Elevated": return "+5% Masking"
         case "Stable": return "Optimal Depth"
         default: return "Calibrating..."
-        }
-    }
-    
-    struct MetricRow: View {
-        let title: String
-        let value: String
-        let statusColor: Color
-        let icon: String
-        
-        var body: some View {
-            HStack {
-                Image(systemName: icon)
-                    .font(.system(size: 20))
-                    .foregroundColor(.black.opacity(0.6))
-                    .frame(width: 30)
-                
-                Text(title)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.black.opacity(0.8))
-                
-                Spacer()
-                
-                Text(value)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(statusColor)
-            }
         }
     }
 }
