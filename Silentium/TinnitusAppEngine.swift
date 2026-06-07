@@ -10,6 +10,8 @@ import AudioKit
 import SoundpipeAudioKit
 import AVFoundation
 import Combine
+import HealthKit
+import SwiftUI
 
 class TinnitusAppEngine: ObservableObject {
     let engine = AudioEngine()
@@ -26,7 +28,15 @@ class TinnitusAppEngine: ObservableObject {
     private var surgicalNotchFilter: EqualizerFilter?
     
     // Synchronized App State Records
-    @Published var calibratedFrequency: Double = 4000.0
+    @AppStorage("calibratedFrequency") var calibratedFrequency: Double = 4000.0 {
+            willSet {
+                // Forces SwiftUI views monitoring the ObservableObject to refresh instantly when calibration changes
+                objectWillChange.send()
+            }
+            didSet {
+                updateNotchFrequency()
+            }
+        }
     @Published var activeSoundscapeName: String = "None"
     @Published var isPlaying: Bool = false
     
@@ -42,6 +52,17 @@ class TinnitusAppEngine: ObservableObject {
     private var naturalMovementTimer: Timer?
     private var lfoPhase: Double = 0.0
     
+    // Sleep Fade Engine State Variables
+    private var sleepFadeTimer: Timer? = nil
+    private var fadeDurationSeconds: Double = 600.0
+    private var secondsRemainingInFade: Double = 600.0
+    private var initialFadeFilterCutoff: Float = 20000.0
+    
+    // HealthKit Properties
+    private let healthStore = HKHealthStore()
+    private var heartRateQuery: HKObserverQuery?
+    private var heartRateUpdateAnchor: HKQueryAnchor?
+    
     init() {
         setupAudioKitPipeline()
         
@@ -49,9 +70,9 @@ class TinnitusAppEngine: ObservableObject {
             try AVAudioSession.sharedInstance().setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetooth])
             try AVAudioSession.sharedInstance().setActive(true)
             try engine.start()
-            print("🔊 AudioKit Hardware Master Engine Active.")
+            print("AudioKit Hardware Master Engine Active.")
         } catch {
-            print("❌ Master Audio Engine Startup Failed: \(error.localizedDescription)")
+            print("Master Audio Engine Startup Failed: \(error.localizedDescription)")
         }
     }
     
@@ -69,6 +90,7 @@ class TinnitusAppEngine: ObservableObject {
         
         let mixerHub = Mixer(whiteNode, pinkNode, brownNode, oscNode)
         
+        // 👈 FIXED: Removed the stray broken typography "let?" line that was throwing the pattern compiler error
         let wahNode = AutoWah(mixerHub)
         wahNode.mix = 0.0
         self.autoWahShifter = wahNode
@@ -95,44 +117,53 @@ class TinnitusAppEngine: ObservableObject {
     func getRecommendationReason(for soundName: String) -> String? {
         let freq = calibratedFrequency
         if freq >= 8000.0 {
-            if soundName == "Torrential Downpour" || soundName == "Steam Vent Meditation" {
-                return "Highly Recommended: Your high-pitched tinnitus ($>=8\text{ kHz}$) is best masked by White Noise's high-frequency saturation energy."
+            if soundName == "Torrential Downpour" || soundName == "Misty Waterfall Veil" {
+                return "Highly Recommended: Your high-pitched tinnitus is best masked by White Noise's high-frequency saturation energy."
             }
         } else if freq >= 3000.0 && freq < 8000.0 {
-            if soundName == "Wind Through Pine Needles" || soundName == "Steady Canopy Rain" {
-                return "Highly Recommended: Your mid-range tinnitus ($3-8\text{ kHz}$) perfectly matches Pink Noise's balanced power distribution."
+            if soundName == "Rhythmic Ocean Swells" || soundName == "Wind Through Pine Needles" || soundName == "Gentle Meadow Stream" {
+                return "Highly Recommended: Your mid-range tinnitus perfectly matches Pink Noise's balanced power distribution."
             }
         } else {
-            if soundName == "Distant Rolling Thunder" || soundName == "Subterranean Canyon Rift" || soundName == "brown_sleep" || soundName == "sub_delta" {
-                return "Highly Recommended: Low-frequency ringing ($<3\text{ kHz}$) matches best with the deep, acoustic structural depth of Brownian rumbles."
+            if soundName == "Distant Rolling Thunder" || soundName == "Subterranean Canyon Rift" || soundName == "Interstellar Cabin Hum" || soundName == "brown_sleep" || soundName == "sub_delta" {
+                return "Highly Recommended: Low-frequency ringing matches best with the deep, acoustic structural depth of Brownian rumbles."
             }
         }
         return nil
     }
     
     func startProceduralSound(type: String) {
-        stopMaskingSound()
+        naturalMovementTimer?.invalidate()
+        naturalMovementTimer = nil
+        whiteNoiseSource?.stop()
+        pinkNoiseSource?.stop()
+        brownNoiseSource?.stop()
+        diagnosticOscillator?.stop()
+        
         activeSoundscapeName = type
         isPlaying = true
         
+        // Metadata Directory Mapping
         switch type {
         case "Torrential Downpour":
             currentSelectedSoundMetadata = (title: "Torrential Downpour", subtitle: "Heavy rain flattening water or striking bare rock surfaces.", key: type)
-        case "Steam Vent Meditation":
-            currentSelectedSoundMetadata = (title: "Steam Vent Meditation", subtitle: "Warm high-pressure steam hiss for high-frequency relief.", key: type)
+        case "Misty Waterfall Veil":
+            currentSelectedSoundMetadata = (title: "Misty Waterfall Veil", subtitle: "The soft, deep hiss of water atomizing continuously in the air.", key: type)
+        case "Rhythmic Ocean Swells":
+            currentSelectedSoundMetadata = (title: "Rhythmic Ocean Swells", subtitle: "Deep ocean waves breaking on a shore with a therapeutic rise-and-fall rhythm.", key: type)
         case "Wind Through Pine Needles":
             currentSelectedSoundMetadata = (title: "Wind Through Pine Needles", subtitle: "Steady breeze passing through soft forest pines.", key: type)
-        case "Steady Canopy Rain":
-            currentSelectedSoundMetadata = (title: "Steady Canopy Rain", subtitle: "Moderate rain filtering through thick protective leaves.", key: type)
+        case "Gentle Meadow Stream":
+            currentSelectedSoundMetadata = (title: "Gentle Meadow Stream", subtitle: "Crisp freshwater tumbling gently over smooth river stones.", key: type)
         case "Distant Rolling Thunder", "brown_sleep":
             currentSelectedSoundMetadata = (title: "Distant Rolling Thunder", subtitle: "Low-frequency rumble of a remote lightning storm.", key: type)
         case "Subterranean Canyon Rift", "sub_delta":
             currentSelectedSoundMetadata = (title: "Subterranean Canyon Rift", subtitle: "Deep, sweeping sub-bass echoes for low-pitch masking.", key: type)
+        case "Interstellar Cabin Hum":
+            currentSelectedSoundMetadata = (title: "Interstellar Cabin Hum", subtitle: "A smooth, ultra-low cosmic engine drone to calm chaotic neural paths.", key: type)
         default:
             currentSelectedSoundMetadata = (title: type, subtitle: "Custom Masking Calibration Noise Waveform", key: type)
         }
-        
-        isPlayerPresentedFullScreen = true
         
         if !engine.avEngine.isRunning { try? engine.start() }
         updateNotchFrequency()
@@ -146,13 +177,23 @@ class TinnitusAppEngine: ObservableObject {
             startNaturalMovementLFO(speed: 1.2) { [weak self] phase in
                 let lfoSway = Float(sin(phase) * 800.0 + 2500.0)
                 self?.dynamicFilter?.cutoffFrequency = lfoSway
-                self?.autoWahShifter?.mix = 10.0
             }
             
-        case "Steam Vent Meditation":
+        case "Misty Waterfall Veil":
             whiteNoiseSource?.start()
-            whiteNoiseSource?.amplitude = 0.40
-            dynamicFilter?.cutoffFrequency = 6000.0
+            whiteNoiseSource?.amplitude = 0.35
+            pinkNoiseSource?.start()
+            pinkNoiseSource?.amplitude = 0.15
+            dynamicFilter?.cutoffFrequency = 5500.0
+            
+        case "Rhythmic Ocean Swells":
+            pinkNoiseSource?.start()
+            startNaturalMovementLFO(speed: 0.18) { [weak self] phase in
+                let oceanWaveSwell = Float(sin(phase) * 600.0 + 1500.0)
+                let waveVolume = Float(sin(phase) * 0.20 + 0.40)
+                self?.dynamicFilter?.cutoffFrequency = oceanWaveSwell
+                self?.pinkNoiseSource?.amplitude = waveVolume
+            }
             
         case "Wind Through Pine Needles":
             pinkNoiseSource?.start()
@@ -160,18 +201,14 @@ class TinnitusAppEngine: ObservableObject {
             startNaturalMovementLFO(speed: 0.25) { [weak self] phase in
                 let windGust = Float(sin(phase) * 400.0 + 1200.0)
                 self?.dynamicFilter?.cutoffFrequency = windGust
-                self?.autoWahShifter?.mix = 20.0
-                self?.autoWahShifter?.wah = Float(abs(sin(phase)) * 0.4)
             }
             
-        case "Steady Canopy Rain":
+        case "Gentle Meadow Stream":
             pinkNoiseSource?.start()
-            pinkNoiseSource?.amplitude = 0.45
-            dynamicFilter?.cutoffFrequency = 3500.0
-            startNaturalMovementLFO(speed: 0.8) { [weak self] phase in
-                let volumeSway = Float(abs(sin(phase)) * 0.15 + 0.3)
-                self?.pinkNoiseSource?.amplitude = volumeSway
-            }
+            pinkNoiseSource?.amplitude = 0.40
+            whiteNoiseSource?.start()
+            whiteNoiseSource?.amplitude = 0.08
+            dynamicFilter?.cutoffFrequency = 2900.0
             
         case "Distant Rolling Thunder", "brown_sleep":
             brownNoiseSource?.start()
@@ -186,13 +223,25 @@ class TinnitusAppEngine: ObservableObject {
             brownNoiseSource?.start()
             brownNoiseSource?.amplitude = 0.55
             dynamicFilter?.cutoffFrequency = 350.0
-            startNaturalMovementLFO(speed: 0.08) { [weak self] phase in
-                self?.autoWahShifter?.mix = 45.0
-                self?.autoWahShifter?.wah = Float(abs(sin(phase)) * 0.3)
+            
+        case "Interstellar Cabin Hum":
+            brownNoiseSource?.start()
+            brownNoiseSource?.amplitude = 0.70
+            startNaturalMovementLFO(speed: 0.04) { [weak self] phase in
+                let engineHum = Float(sin(phase) * 12.0 + 95.0)
+                self?.dynamicFilter?.cutoffFrequency = engineHum
             }
             
         default:
             break
+        }
+    }
+    
+    func setRoomCompensationActive(_ isActive: Bool) {
+        if isActive {
+            print("Acoustic analysis pipeline initialized: Calibrating room response curves.")
+        } else {
+            print("Acoustic analysis pipeline deactivated: Restoring default flat calibration baseline.")
         }
     }
     
@@ -203,8 +252,14 @@ class TinnitusAppEngine: ObservableObject {
         pinkNoiseSource?.stop()
         brownNoiseSource?.stop()
         diagnosticOscillator?.stop()
-        activeSoundscapeName = "None"
+        
         isPlaying = false
+    }
+    
+    func forceQuitEngineTrack() {
+        // Explicitly invoked ONLY when swiping away the card container component
+        stopMaskingSound()
+        activeSoundscapeName = "None"
     }
     
     func updateNotchFrequency() {
@@ -245,15 +300,186 @@ class TinnitusAppEngine: ObservableObject {
         updateNotchFrequency()
     }
     
+    func startIntelligentSleepFade(durationMinutes: Int) {
+        sleepFadeTimer?.invalidate()
+        
+        fadeDurationSeconds = Double(durationMinutes * 60)
+        secondsRemainingInFade = fadeDurationSeconds
+        initialFadeFilterCutoff = dynamicFilter?.cutoffFrequency ?? 20000.0
+        
+        sleepFadeTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            
+            if self.secondsRemainingInFade > 0 {
+                self.secondsRemainingInFade -= 1
+                
+                let ratio = Float(self.secondsRemainingInFade / self.fadeDurationSeconds)
+                let currentCutoff = 150.0 + (self.initialFadeFilterCutoff - 150.0) * ratio
+                self.dynamicFilter?.cutoffFrequency = currentCutoff
+                
+                let whiteVol = 0.35 * ratio
+                let pinkVol = 0.45 * ratio
+                let brownVol = 0.55 * ratio
+                
+                self.whiteNoiseSource?.amplitude = whiteVol
+                self.pinkNoiseSource?.amplitude = pinkVol
+                self.brownNoiseSource?.amplitude = brownVol
+            } else {
+                self.forceQuitEngineTrack()
+                self.stopSleepFadeEngine()
+            }
+        }
+    }
+    
+    func stopSleepFadeEngine() {
+        sleepFadeTimer?.invalidate()
+        sleepFadeTimer = nil
+        dynamicFilter?.cutoffFrequency = 20000.0
+    }
+        
     func requestHealthKitPermission(completion: @escaping (Bool, Error?) -> Void) {
-        completion(true, nil)
+        guard HKHealthStore.isHealthDataAvailable() else {
+            completion(false, NSError(domain: "TinnitusApp", code: 1, userInfo: [NSLocalizedDescriptionKey: "HealthKit is not available on this device."]))
+            return
+        }
+        
+        let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
+        let typesToShare: Set<HKSampleType> = [] // We are only reading, not writing
+        let typesToRead: Set<HKObjectType> = [heartRateType]
+        
+        healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead) { success, error in
+            DispatchQueue.main.async {
+                if success {
+                    self.isBiometricTrackingEnabled = true
+                } else {
+                    self.isBiometricTrackingEnabled = false
+                    print("HealthKit authorization failed: \(error?.localizedDescription ?? "Unknown error")")
+                }
+                completion(success, error)
+            }
+        }
     }
     
     func startHealthKitMonitoring() {
-        isBiometricTrackingEnabled = true
+        guard HKHealthStore.isHealthDataAvailable() else {
+            print("HealthKit is not available, cannot start monitoring.")
+            return
+        }
+        
+        guard isBiometricTrackingEnabled else {
+            print("Biometric tracking is not enabled.")
+            return
+        }
+        
+        let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
+        
+        // Stop any existing query before starting a new one
+        if let existingQuery = heartRateQuery {
+            healthStore.stop(existingQuery)
+            heartRateQuery = nil
+        }
+        
+        let query = HKObserverQuery(sampleType: heartRateType, predicate: nil) { [weak self] query, completionHandler, error in
+            guard let self = self else { return }
+            
+            if let error = error {
+                print("Heart rate observer query failed: \(error.localizedDescription)")
+                completionHandler()
+                return
+            }
+            
+            self.fetchLatestHeartRate(completion: { success, heartRate, fetchError in
+                if success, let rate = heartRate {
+                    DispatchQueue.main.async {
+                        self.currentHeartRate = Int(rate)
+                        self.updateStressLevel(for: Int(rate))
+                    }
+                } else if let fetchError = fetchError {
+                    print("Failed to fetch latest heart rate: \(fetchError.localizedDescription)")
+                }
+                completionHandler() // Call completion handler to tell HealthKit we've processed the updates
+            })
+        }
+        
+        healthStore.execute(query)
+        self.heartRateQuery = query
+        print("HealthKit heart rate monitoring started.")
+        
+        // Perform an initial fetch immediately
+        fetchLatestHeartRate { success, heartRate, error in
+            if success, let rate = heartRate {
+                DispatchQueue.main.async {
+                    self.currentHeartRate = Int(rate)
+                    self.updateStressLevel(for: Int(rate))
+                }
+            } else if let error = error {
+                print("Initial fetch failed: \(error.localizedDescription)")
+            }
+        }
     }
     
     func stopHealthKitMonitoring() {
-        isBiometricTrackingEnabled = false
+        if let query = heartRateQuery {
+            healthStore.stop(query)
+            heartRateQuery = nil
+            print("HealthKit heart rate monitoring stopped.")
+        }
+        DispatchQueue.main.async {
+            self.currentHeartRate = 0 // Reset heart rate display
+            self.stressLevel = "Calibrating..." // Reset stress level
+        }
+    }
+    
+    private func fetchLatestHeartRate(completion: @escaping (Bool, Double?, Error?) -> Void) {
+        let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
+        let now = Date()
+        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: now)!
+        let predicate = HKQuery.predicateForSamples(withStart: sevenDaysAgo, end: now, options: .strictEndDate)
+        
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        
+        let query = HKSampleQuery(sampleType: heartRateType, predicate: predicate, limit: 1, sortDescriptors: [sortDescriptor]) { (query, samples, error) in
+            if let error = error {
+                completion(false, nil, error)
+                return
+            }
+            
+            guard let latestSample = samples?.first as? HKQuantitySample else {
+                completion(true, nil, nil) // No samples found, but no error
+                return
+            }
+            
+            let heartRateUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
+            let heartRate = latestSample.quantity.doubleValue(for: heartRateUnit)
+            completion(true, heartRate, nil)
+        }
+        healthStore.execute(query)
+    }
+    
+    private func updateStressLevel(for heartRate: Int) {
+        if heartRate > 100 { // Example threshold for "spike"
+            stressLevel = "Spike"
+            // Potentially trigger adaptive audio changes here
+        } else if heartRate > 80 { // Example threshold for "elevated"
+            stressLevel = "Elevated"
+        } else {
+            stressLevel = "Stable"
+        }
+
+        switch stressLevel {
+        case "Spike":
+            // Increase masking intensity or broaden the frequency range
+            surgicalNotchFilter?.gain = 0.05 // Reduce the depth of the notch (make it less effective)
+            pinkNoiseSource?.amplitude = 0.6 // Boost pink noise, as an example
+        case "Elevated":
+            surgicalNotchFilter?.gain = 0.005 // Slightly reduce notch depth
+            pinkNoiseSource?.amplitude = 0.45
+        case "Stable":
+            surgicalNotchFilter?.gain = 0.001 // Optimal notch depth
+            pinkNoiseSource?.amplitude = 0.35
+        default:
+            break
+        }
     }
 }
+

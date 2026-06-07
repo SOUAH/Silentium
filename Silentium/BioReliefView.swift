@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct BioReliefView: View {
-    @EnvironmentObject var engine: TinnitusAppEngine // Resolves global shared state context
+    @EnvironmentObject var engine: TinnitusAppEngine
     @State private var isBreathing = false
     @State private var showingPermissionAlert = false
     @State private var alertErrorMessage = ""
@@ -20,25 +20,21 @@ struct BioReliefView: View {
             AppTheme.background.ignoresSafeArea()
             
             VStack(spacing: 25) {
-                // 1. Header Section
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Bio-Adaptive Relief")
                         .font(.system(size: 34, weight: .bold))
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .foregroundColor(AppTheme.text)
                     
                     Text("Real-time biometric tinnitus mitigation")
                         .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(.black.opacity(0.6))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .foregroundColor(AppTheme.text.opacity(0.6))
                 }
                 .padding(.horizontal)
                 .padding(.top, 18)
                 
-                // 2. The Biometric Pulse Ring
                 ZStack {
                     Circle()
-                        .stroke(Color.black.opacity(0.03), lineWidth: 24)
+                        .stroke(AppTheme.text.opacity(0.03), lineWidth: 24)
                         .frame(width: 190, height: 190)
                     
                     Circle()
@@ -53,15 +49,15 @@ struct BioReliefView: View {
                     VStack(spacing: 4) {
                         Image(systemName: isTrackingEnabledLocal ? "heart.text.square.fill" : "heart.slash.fill")
                             .font(.system(size: 28))
-                            .foregroundColor(engine.stressLevel == "Spike" ? .red : .black.opacity(0.7))
+                            .foregroundColor(engine.stressLevel == "Spike" ? .red : AppTheme.text.opacity(0.7))
                         
                         Text(!isTrackingEnabledLocal ? "--" : (engine.currentHeartRate == 0 ? "..." : "\(engine.currentHeartRate)"))
                             .font(.system(size: 54, weight: .bold, design: .monospaced))
-                            .foregroundColor(.black)
+                            .foregroundColor(AppTheme.text)
                         
                         Text("BPM")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.black.opacity(0.5))
+                            .foregroundColor(AppTheme.text.opacity(0.5))
                     }
                 }
                 .frame(height: 200)
@@ -72,16 +68,15 @@ struct BioReliefView: View {
                     }
                 }
                 
-                // 3. Automation Toggle Module
                 VStack(spacing: 12) {
                     Toggle(isOn: $isTrackingEnabledLocal) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Sync Apple Watch")
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.black)
+                                .foregroundColor(AppTheme.text)
                             Text("Adapt audio therapy to stress responses")
                                 .font(.system(size: 13))
-                                .foregroundColor(.black.opacity(0.5))
+                                .foregroundColor(AppTheme.text.opacity(0.5))
                         }
                     }
                     .tint(.orange)
@@ -106,11 +101,10 @@ struct BioReliefView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
-                .background(Color.white)
+                .background(AppTheme.cardBackground)
                 .cornerRadius(20)
                 .padding(.horizontal)
                 
-                // 4. Clinical Metrics Cards
                 VStack(spacing: 16) {
                     MetricRow(
                         title: "Nervous System",
@@ -119,19 +113,19 @@ struct BioReliefView: View {
                         icon: "waveform.path.ecg"
                     )
                     
-                    Divider().background(Color.black.opacity(0.08))
+                    Divider().background(AppTheme.text.opacity(0.08))
                     
                     MetricRow(
                         title: "Adaptive Compensation",
                         value: !isTrackingEnabledLocal ? "Inactive" : adaptiveCompensationText(for: engine.stressLevel),
-                        statusColor: .black,
+                        statusColor: AppTheme.text,
                         icon: "slider.horizontal.below.square.filled.and.square"
                     )
                 }
                 .padding(20)
                 .background(
                     RoundedRectangle(cornerRadius: 24)
-                        .fill(Color.white)
+                        .fill(AppTheme.cardBackground)
                         .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
                 )
                 .padding(.horizontal)
@@ -145,8 +139,6 @@ struct BioReliefView: View {
             Text(alertErrorMessage.isEmpty ? "Please enable Heart Rate access permissions inside Apple Health settings." : alertErrorMessage)
         }
     }
-    
-    // MARK: - Re-added Private Clinical Helper Methods (Fixes Scope Errors)
     
     private func stressLevelColor(for level: String) -> Color {
         guard isTrackingEnabledLocal else { return .gray }
@@ -168,3 +160,4 @@ struct BioReliefView: View {
         }
     }
 }
+

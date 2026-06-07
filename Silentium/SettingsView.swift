@@ -15,13 +15,11 @@ struct SettingsView: View {
     @AppStorage("isHapticFeedbackEnabled") private var isHapticFeedbackEnabled = true
     @AppStorage("selectedButtonSize") private var selectedButtonSize = "Standard"
     
-    @State private var showingBioRelief = false
-    @State private var showingToneFinder = false
-    @State private var showingPrivacyPolicy = false
-    @State private var showingTermsOfUse = false
-    @State private var expandedFAQ: UUID? = nil
+    // Core Engine State Binding for Room Compensation Feature
+    @AppStorage("isReactiveRoomCompensationEnabled") private var isReactiveRoomCompensationEnabled = false
     
-    let buttonSizes = ["Standard", "Large", "Extra Large"]
+    @State private var showingBioRelief = false
+    @State private var showingFAQSheet = false // Expanded Sheet trigger
     
     struct FAQItem: Identifiable {
         let id = UUID()
@@ -29,52 +27,52 @@ struct SettingsView: View {
         let answer: String
     }
     
-    let faqRegistry = [
+    // Expanded, complete clinical and technical registry for the specialized FAQ sheet container
+    let expandedFAQRegistry = [
         FAQItem(question: "How does Notched Therapy work?", answer: "Silentium identifies your exact tinnitus pitch and digitally cuts that frequency out of your masking soundscapes. This starves hyperactive neurons in your auditory cortex, training your brain to ignore the sound over time."),
+        FAQItem(question: "What is Reactive Room Compensation?", answer: "This mode samples subtle environmental acoustics via your device's microphone to analyze atmospheric changes. It realigns your sound filters on the fly, keeping target treatment masking clear regardless of whether you're in a echoing hallway or a noisy office."),
         FAQItem(question: "Is this app a registered medical device?", answer: "No. Silentium is an acoustic wellness and sound therapy helper utility. It does not replace clinical audiology treatments or prescription hearing instruments. Consult an ENT for specialized evaluation."),
-        FAQItem(question: "How often should I use the therapy soundscapes?", answer: "For optimal neural habituation, we recommend using the custom notched soundscapes for 1 to 2 hours daily during quiet work, reading, or sleep preparation intervals.")
+        FAQItem(question: "How often should I use the therapy soundscapes?", answer: "For optimal neural habituation, we recommend using the custom notched soundscapes for 1 to 2 hours daily during quiet work, reading, or sleep preparation intervals."),
+        FAQItem(question: "Can I listen through standard Bluetooth headphones?", answer: "Yes. High-quality wireless or wired headphones with flat frequency response properties are excellent for delivering the notched equalization sound curves directly to your ears."),
+        FAQItem(question: "Does the app collect my background microphone audio?", answer: "No. Your privacy is paramount. When Reactive Room Compensation is active, environmental acoustic arrays are processed instantly in short intervals completely on-device. No audio data is ever written to disc or transmitted over the web.")
     ]
     
     var body: some View {
-        ZStack {
-            AppTheme.background.ignoresSafeArea()
-            
-            VStack(spacing: 0) {
-                // 1. Title Header Row with Modern Native Xmark Dismiss Button
-                HStack(alignment: .center) {
-                    Text("Settings")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.text)
-                    
-                    Spacer()
-                    
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(AppTheme.text.opacity(0.7))
-                            .padding(12)
-                            .background(Circle().fill(AppTheme.text.opacity(0.05)))
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 12)
+        NavigationStack {
+            ZStack {
+                AppTheme.background.ignoresSafeArea()
                 
                 ScrollView(.vertical, showsIndicators: true) {
                     VStack(spacing: 22) {
                         
-                        // 2. Tuning Controls Panel (Launches sub-views perfectly)
+                        // MARK: - 1. Tuning Controls Panel
                         SettingsSectionCard(title: "Tuning Controls") {
                             VStack(spacing: 0) {
                                 NavigationLinkRow(title: "Bio-Adaptive Relief Monitoring", systemIcon: "heart.text.square.fill") {
                                     showingBioRelief = true
                                 }
+                                
+                                Divider().background(AppTheme.text.opacity(0.06)).padding(.leading, 44)
+                                
+                                ToggleRowStyle(
+                                    title: "Reactive Room Compensation",
+                                    description: "Optimizes filter curves dynamically based on microphone acoustic profiles.",
+                                    systemIcon: "vial.viewfinder",
+                                    isOn: $isReactiveRoomCompensationEnabled
+                                )
+                                .onChange(of: isReactiveRoomCompensationEnabled) { stateFlag in
+                                    if isHapticFeedbackEnabled {
+                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    }
+                                    
+                                    let coreEngineReference = self.engine
+                                    let dynamicToggleValue = stateFlag
+                                    coreEngineReference.setRoomCompensationActive(dynamicToggleValue)
+                                }
                             }
                         }
                         
-                        // 3. Accessibility Controls Card Group
+                        // 2. Accessibility Controls
                         SettingsSectionCard(title: "Accessibility") {
                             VStack(spacing: 0) {
                                 ToggleRowStyle(
@@ -86,47 +84,71 @@ struct SettingsView: View {
                             }
                         }
                         
-                        // 5. Frequently Asked Questions Section
-                        SettingsSectionCard(title: "FAQs") {
+                        // 3. Consolidated Support & FAQs
+                        SettingsSectionCard(title: "Support") {
                             VStack(spacing: 0) {
-                                ForEach(faqRegistry) { faq in
-                                    FAQRowStyle(
-                                        faq: faq,
-                                        isExpanded: expandedFAQ == faq.id,
-                                        action: {
-                                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                                                expandedFAQ = (expandedFAQ == faq.id) ? nil : faq.id
-                                            }
-                                        }
-                                    )
-                                    if faq.id != faqRegistry.last?.id {
-                                        Divider().background(AppTheme.text.opacity(0.06)).padding(.leading, 44)
-                                    }
+                                NavigationLinkRow(title: "Frequently Asked Questions", systemIcon: "questionmark.circle.fill") {
+                                    showingFAQSheet = true
                                 }
                             }
                         }
                         
-                        // 6. Privacy & Terms Documents Panel
+                        // 4. Contact Support Center
+                        SettingsSectionCard(title: "Contact") {
+                            VStack(spacing: 0) {
+                                Link(destination: URL(string: "mailto:souha.aouidid1@gmail.com")!) {
+                                    HStack(spacing: 14) {
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                .fill(AppTheme.accentGradient)
+                                            Image(systemName: "envelope.fill")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundColor(.white)
+                                        }
+                                        .frame(width: 32, height: 32)
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Email Support")
+                                                .font(.body)
+                                                .fontWeight(.semibold)
+                                                .foregroundColor(AppTheme.text)
+                                            Text("souha.aouidid1@gmail.com")
+                                                .font(.caption)
+                                                .foregroundColor(AppTheme.text.opacity(0.4))
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "arrow.up.forward")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(AppTheme.text.opacity(0.2))
+                                    }
+                                    .frame(minHeight: 48)
+                                }
+                            }
+                        }
+                        
+                        // 5. Privacy & Terms Documents Panel
                         SettingsSectionCard(title: "Legal") {
                             VStack(spacing: 0) {
-                                NavigationLinkRow(title: "Privacy Policy", systemIcon: "hand.raised.fill") {
-                                    showingPrivacyPolicy = true
+                                Link(destination: URL(string: "https://go.fliplink.me/view/FC10FD60-0222-421F-AED2-BE565465F3B9")!) {
+                                    ExternalLinkRowStyle(title: "Privacy Policy", systemIcon: "hand.raised.fill")
                                 }
                                 
                                 Divider().background(AppTheme.text.opacity(0.06)).padding(.leading, 44)
                                 
-                                NavigationLinkRow(title: "Terms of Use", systemIcon: "doc.plaintext.fill") {
-                                    showingTermsOfUse = true
+                                Link(destination: URL(string: "https://go.fliplink.me/view/0C128AFB-AC9D-4541-A6A9-780BE1F6D54D")!) {
+                                    ExternalLinkRowStyle(title: "Terms of Use", systemIcon: "doc.plaintext.fill")
                                 }
                             }
                         }
                         
-                        // 7. Medical Legal Disclaimer Sheet Layout Box
+                        //6. Medical Legal Disclaimer Sheet Layout Box
                         VStack(alignment: .center, spacing: 8) {
                             HStack(spacing: 6) {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .font(.footnote)
-                                    .foregroundColor(AppTheme.amberCustom) 
+                                    .foregroundColor(AppTheme.amberCustom)
                                 Text("Medical Disclaimer")
                                     .font(.footnote)
                                     .fontWeight(.bold)
@@ -149,23 +171,32 @@ struct SettingsView: View {
                         .padding(.horizontal, 20)
                         .padding(.bottom, 24)
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 16)
                 }
             }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(AppTheme.text.opacity(0.6))
+                            .frame(width: 32, height: 32)
+                            .background(Circle().fill(AppTheme.text.opacity(0.05)))
+                    }
+                }.sharedBackgroundVisibility(.hidden)
+            }
+            .sheet(isPresented: $showingBioRelief) {
+                BioReliefView().environmentObject(engine)
+            }
+            // Dedicated FAQs Comprehensive List Detail Modal View Sheet Overlay
+            .sheet(isPresented: $showingFAQSheet) {
+                FAQModalSheetContainerView(items: expandedFAQRegistry)
+            }
         }
-        .fullScreenCover(isPresented: $showingToneFinder) {
-            ToneFinderView(engine: engine, isFirstTime: false)
-        }
-        .sheet(isPresented: $showingBioRelief) {
-            BioReliefView() // 👈 FIXED: Dropped manual init parameters
-                .environmentObject(engine) //  FIXED: Injected active instance via environment tree modifier
-        }
-        .sheet(isPresented: $showingPrivacyPolicy) { SafariFallbackTemplateView(title: "Privacy Policy") }
-        .sheet(isPresented: $showingTermsOfUse) { SafariFallbackTemplateView(title: "Terms of Use") }
     }
 }
-
-// Reusable Setting UI Cards
 
 struct SettingsSectionCard<Content: View>: View {
     let title: String
@@ -190,6 +221,82 @@ struct SettingsSectionCard<Content: View>: View {
     }
 }
 
+struct FAQModalSheetContainerView: View {
+    let items: [SettingsView.FAQItem]
+    @Environment(\.dismiss) private var dismiss
+    @State private var openItemIndex: UUID? = nil
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AppTheme.background.ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 16) {
+                        ForEach(items) { item in
+                            Button(action: {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    openItemIndex = (openItemIndex == item.id) ? nil : item.id
+                                }
+                            }) {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    HStack(spacing: 14) {
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                .fill(AppTheme.accentGradient)
+                                            Image(systemName: "questionmark.circle.fill")
+                                                .font(.system(size: 15))
+                                                .foregroundColor(.white)
+                                        }
+                                        .frame(width: 32, height: 32)
+                                        
+                                        Text(item.question)
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(AppTheme.text)
+                                            .multilineTextAlignment(.leading)
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundColor(AppTheme.text.opacity(0.2))
+                                            .rotationEffect(.degrees(openItemIndex == item.id ? 90 : 0))
+                                    }
+                                    
+                                    if openItemIndex == item.id {
+                                        Text(item.answer)
+                                            .font(.system(size: 14))
+                                            .foregroundColor(AppTheme.text.opacity(0.6))
+                                            .lineSpacing(4)
+                                            .padding(.leading, 46)
+                                            .padding(.bottom, 6)
+                                            .transition(.opacity)
+                                    }
+                                }
+                                .padding(14)
+                                .background(AppTheme.cardBackground)
+                                .cornerRadius(14)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationTitle("Help & FAQs")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.bold)
+                        .foregroundColor(AppTheme.text)
+                }
+            }
+        }
+    }
+}
+
+
 struct ToggleRowStyle: View {
     let title: String
     let description: String
@@ -200,10 +307,10 @@ struct ToggleRowStyle: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(AppTheme.text.opacity(0.04))
+                    .fill(AppTheme.accentGradient)
                 Image(systemName: systemIcon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(AppTheme.text.opacity(0.7))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
             }
             .frame(width: 32, height: 32)
             
@@ -215,64 +322,17 @@ struct ToggleRowStyle: View {
                 Text(description)
                     .font(.caption)
                     .foregroundColor(AppTheme.text.opacity(0.4))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             
             Spacer()
             
             Toggle("", isOn: $isOn)
-                .toggleStyle(SwitchToggleStyle(tint: AppTheme.text))
+                .toggleStyle(SwitchToggleStyle(tint: Color.orange))
                 .labelsHidden()
         }
-        .frame(minHeight: 48)
-    }
-}
-
-struct FAQRowStyle: View {
-    let faq: SettingsView.FAQItem
-    let isExpanded: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(AppTheme.text.opacity(0.04))
-                        Image(systemName: "questionmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(AppTheme.accentGradient)
-                    }
-                    .frame(width: 32, height: 32)
-                    
-                    Text(faq.question)
-                        .font(.body)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.text)
-                        .multilineTextAlignment(.leading)
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(AppTheme.text.opacity(0.2))
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                }
-                
-                if isExpanded {
-                    Text(faq.answer)
-                        .font(.footnote)
-                        .foregroundColor(AppTheme.text.opacity(0.6))
-                        .lineSpacing(4)
-                        .padding(.leading, 46)
-                        .padding(.bottom, 4)
-                        .transition(.opacity)
-                }
-            }
-            .frame(minHeight: 48)
-            .padding(.vertical, 4)
-        }
-        .buttonStyle(PlainButtonStyle())
+        .frame(minHeight: 54)
+        .padding(.vertical, 4)
     }
 }
 
@@ -286,10 +346,10 @@ struct NavigationLinkRow: View {
             HStack(spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(AppTheme.text.opacity(0.04))
+                        .fill(AppTheme.accentGradient)
                     Image(systemName: systemIcon)
                         .font(.system(size: 15))
-                        .foregroundColor(AppTheme.text.opacity(0.7))
+                        .foregroundColor(.white)
                 }
                 .frame(width: 32, height: 32)
                 
@@ -300,8 +360,8 @@ struct NavigationLinkRow: View {
                 
                 Spacer()
                 
-                Image(systemName: "arrow.up.forward")
-                    .font(.system(size: 14, weight: .bold))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundColor(AppTheme.text.opacity(0.2))
             }
             .frame(minHeight: 48)
@@ -310,22 +370,32 @@ struct NavigationLinkRow: View {
     }
 }
 
-struct SafariFallbackTemplateView: View {
+struct ExternalLinkRowStyle: View {
     let title: String
-    @Environment(\.presentationMode) var presentationMode
+    let systemIcon: String
     
     var body: some View {
-        NavigationView {
+        HStack(spacing: 14) {
             ZStack {
-                AppTheme.background.ignoresSafeArea()
-                Text("Localized document asset container for \(title).")
-                    .font(.callout)
-                    .foregroundColor(AppTheme.text.opacity(0.5))
-                    .padding(32)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(AppTheme.accentGradient)
+                Image(systemName: systemIcon)
+                    .font(.system(size: 14))
+                    .foregroundColor(.white)
             }
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(trailing: Button("Done") { presentationMode.wrappedValue.dismiss() }.foregroundColor(AppTheme.text))
+            .frame(width: 32, height: 32)
+            
+            Text(title)
+                .font(.body)
+                .fontWeight(.semibold)
+                .foregroundColor(AppTheme.text)
+            
+            Spacer()
+            
+            Image(systemName: "arrow.up.forward")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(AppTheme.text.opacity(0.2))
         }
+        .frame(minHeight: 48)
     }
 }

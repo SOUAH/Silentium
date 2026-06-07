@@ -33,19 +33,20 @@ struct WelcomeView: View {
     }
     
     private var headerSection: some View {
-        VStack(spacing: 12) {
-            Text("Welcome to Silentium!")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundColor(.black)
+        VStack(spacing: 10) {
+            Text("Welcome to Silentium")
+                .font(.system(size: 34, weight: .bold))
+                .foregroundColor(AppTheme.text)
+                .multilineTextAlignment(.center)
             
             Text("A calm path to a quieter world.")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundColor(.gray)
+                .font(.system(size: 17, weight: .regular))
+                .foregroundColor(AppTheme.text.opacity(0.5))
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 80)
-        .padding(.horizontal, 40)
+        .padding(.top, 72)
+        .padding(.horizontal, 32)
     }
     
     private var featuresSection: some View {

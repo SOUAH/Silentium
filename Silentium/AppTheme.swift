@@ -6,28 +6,41 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct AppTheme {
-    static let background = Color(hex: "F5F2EF")
-    static let text = Color.black
-    static let accentGradient = LinearGradient(
-        colors: [Color(red: 0.8, green: 0.1, blue: 0.4), .orange],
-        startPoint: .leading,
-        endPoint: .trailing
-    )
-    static let cardBackground = Color.white.opacity(0.8)
-    static let amberCustom = Color(hex: "FFC107")
-}
-
-extension Color {
-    init(hex: String) {
-        let scanner = Scanner(string: hex)
-        var rgbValue: UInt64 = 0
-        scanner.scanHexInt64(&rgbValue)
-        let r = Double((rgbValue & 0xFF0000) >> 16) / 255.0
-        let g = Double((rgbValue & 0x00FF00) >> 8) / 255.0
-        let b = Double(rgbValue & 0x0000FF) / 255.0
-        self.init(red: r, green: g, blue: b)
+    static var background: Color {
+        Color(UIColor { traitCollection in
+            // Automatically samples system appearance environment changes
+            if traitCollection.userInterfaceStyle == .dark {
+                // Returns clean OLED Midnight Navy when system Dark Mode is ON
+                return UIColor(red: 0.05, green: 0.06, blue: 0.08, alpha: 1.0)
+            } else {
+                return UIColor(red: 245/255, green: 242/255, blue: 239/255, alpha: 1.0)
+            }
+        })
     }
+    
+    static var text: Color {
+        Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark ? .white : .black
+        })
+    }
+    
+    static var cardBackground: Color {
+        Color(UIColor { traitCollection in
+            if traitCollection.userInterfaceStyle == .dark {
+                return UIColor(red: 0.11, green: 0.13, blue: 0.16, alpha: 1.0) // Frosted Dark card
+            } else {
+                return .white // Premium light surface card
+            }
+        })
+    }
+    
+    static let accentGradient = LinearGradient(
+        colors: [Color.pink, Color.orange],
+        startPoint: .leading, endPoint: .trailing
+    )
+    
+    static let amberCustom = Color.orange
 }
-

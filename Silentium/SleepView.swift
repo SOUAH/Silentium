@@ -10,53 +10,59 @@ import SwiftUI
 struct SleepView: View {
     @ObservedObject var engine: TinnitusAppEngine
     @AppStorage("sleepNotchAttenuation") private var isNotchAttenuated = true
-    @State private var selectedTimerMinutes: Int? = nil
     
+    // Core definition layout for our specialized medical sleep soundscapes
     let fallAsleepSounds = [
-        ("Deep Brown Noise", "Deep waterfall rumble. Perfect for masking high-frequency ringing.", "water.waves", "brown_sleep"),
-        ("Sub-Delta Modulation", "Fluid 10s breathing swells that coax your brain into deep sleep.", "waveform.path.ecg", "sub_delta")
+        (title: "Deep Brown Noise", subtitle: "Deep waterfall rumble. Perfect for masking high-frequency ringing.", icon: "water.waves", key: "brown_sleep"),
+        (title: "Sub-Delta Modulation", subtitle: "Fluid 10s breathing swells that coax your brain into deep sleep.", icon: "waveform.path.ecg", key: "sub_delta")
     ]
-    
-    let timerOptions = [15, 30, 45, 60]
     
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            AppTheme.background.ignoresSafeArea()
             
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 14) {
                         Text("Fall Asleep")
                             .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(AppTheme.text)
                             .padding(.horizontal, 20)
                         
                         VStack(spacing: 14) {
-                            ForEach(fallAsleepSounds, id: \.0) { sound in
-                                let isThisCardActive = engine.activeSoundscapeName == sound.3
+                            ForEach(fallAsleepSounds, id: \.key) { sound in
+                                let isThisCardActive = engine.activeSoundscapeName == sound.key
                                 
                                 Button(action: {
-                                    if isThisCardActive && engine.isPlaying {
-                                        engine.stopMaskingSound()
-                                    } else {
-                                        engine.startProceduralSound(type: sound.3)
-                                    }
+                                    let impact = UIImpactFeedbackGenerator(style: .medium)
+                                    impact.impactOccurred()
+                                    
+                                    // Set up target sound tracking data
+                                    engine.currentSelectedSoundMetadata = (
+                                        title: sound.title,
+                                        subtitle: sound.subtitle,
+                                        key: sound.key
+                                    )
+                                    
+                                    // Spin up audio nodes and launch master player view overlay panel
+                                    engine.startProceduralSound(type: sound.key)
+                                    engine.isPlayerPresentedFullScreen = true
                                 }) {
                                     HStack(alignment: .top, spacing: 16) {
-                                        Image(systemName: sound.2)
+                                        Image(systemName: sound.icon)
                                             .font(.system(size: 24))
                                             .foregroundStyle(AppTheme.accentGradient)
                                             .frame(width: 32)
                                             .padding(.top, 2)
                                         
                                         VStack(alignment: .leading, spacing: 6) {
-                                            Text(sound.0)
+                                            Text(sound.title)
                                                 .font(.system(size: 18, weight: .bold))
-                                                .foregroundColor(.white)
+                                                .foregroundColor(AppTheme.text)
                                             
-                                            Text(sound.1)
+                                            Text(sound.subtitle)
                                                 .font(.system(size: 14, weight: .medium))
-                                                .foregroundColor(.white.opacity(0.5))
+                                                .foregroundColor(AppTheme.text.opacity(0.5))
                                                 .multilineTextAlignment(.leading)
                                                 .fixedSize(horizontal: false, vertical: true)
                                         }
@@ -64,18 +70,20 @@ struct SleepView: View {
                                         Spacer()
                                         
                                         if isThisCardActive && engine.isPlaying {
-                                            Image(systemName: "pause.fill")
-                                                .font(.system(size: 30))
+                                            Image(systemName: "waveform")
+                                                .font(.system(size: 22, weight: .bold))
                                                 .foregroundStyle(AppTheme.accentGradient)
+                                                .padding(.top, 4)
                                         } else {
-                                            Image(systemName: "play.fill")
-                                                .font(.system(size: 30))
-                                                .foregroundStyle(AppTheme.accentGradient)
+                                            Image(systemName: "play.circle.fill")
+                                                .font(.system(size: 26))
+                                                .foregroundColor(AppTheme.text.opacity(0.2))
+                                                .padding(.top, 2)
                                         }
                                     }
                                     .padding(20)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Color(white: 0.12))
+                                    .background(AppTheme.cardBackground)
                                     .cornerRadius(20)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 20)
@@ -88,41 +96,11 @@ struct SleepView: View {
                         .padding(.horizontal, 20)
                     }
                     
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Sleep Timer")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.white)
-                        
-                        Text("Audio transitions will smoothly fade to complete silence during the last 5 minutes to prevent sudden tinnitus snaps.")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white.opacity(0.5))
-                            .fixedSize(horizontal: false, vertical: true)
-                        
-                        HStack(spacing: 12) {
-                            ForEach(timerOptions, id: \.self) { minutes in
-                                let isTimerSelected = selectedTimerMinutes == minutes
-                                
-                                Button(action: {
-                                    selectedTimerMinutes = isTimerSelected ? nil : minutes
-                                }) {
-                                    Text("\(minutes) Min")
-                                        .font(.system(size: 15, weight: .bold))
-                                        .foregroundColor(isTimerSelected ? .black : .white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 14)
-                                        .background(isTimerSelected ? Color.white : Color(white: 0.12))
-                                        .cornerRadius(12)
-                                }
-                            }
-                        }
-                        .padding(.top, 4)
-                    }
-                    .padding(.horizontal, 20)
-                    
+                    // Clinical Notch Filter Configuration Group
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Notch & Quiet Tuning")
                             .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(AppTheme.text)
                         
                         VStack(spacing: 16) {
                             Toggle(isOn: $isNotchAttenuated) {
@@ -135,28 +113,28 @@ struct SleepView: View {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Acoustic Notch Target")
                                             .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(AppTheme.text)
                                         Text("Drop background spectrum -3dB around your pitch")
                                             .font(.system(size: 13))
-                                            .foregroundColor(.white.opacity(0.5))
+                                            .foregroundColor(AppTheme.text.opacity(0.5))
                                     }
                                 }
                             }
                             .tint(.orange)
                         }
                         .padding(20)
-                        .background(Color(white: 0.12))
+                        .background(AppTheme.cardBackground)
                         .cornerRadius(20)
                         
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Spacer()
-                            Image(systemName: "info.circle")
+                            Image(systemName: "info.circle.fill")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(.yellow)
                             
-                            Text("Melatonin Preservation: Pure black pixels decrease blue light exposure.")
+                            Text("Melatonin Preservation: Displays adjust contrast levels based on target environment.")
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.gray)
+                                .foregroundColor(AppTheme.text.opacity(0.4))
                                 .multilineTextAlignment(.center)
                             Spacer()
                         }
@@ -167,6 +145,7 @@ struct SleepView: View {
                     
                     Spacer()
                 }
+                .padding(.top, 16)
                 .padding(.bottom, 30)
             }
         }
