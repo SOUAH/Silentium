@@ -52,14 +52,8 @@ struct ImportantNoticeView: View {
                 
                 Button(action: onNext) {
                     Text("I Understand & Accept")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(AppTheme.accentGradient)
-                        .cornerRadius(16)
                 }
-                .buttonStyle(.plain) // 👈 UPDATED: Implemented native Apple style modifier pass
+                .buttonStyle(GradientCapsuleButtonStyle())
                 .padding(.horizontal, 24)
                 .padding(.bottom, 20)
             }
@@ -102,14 +96,8 @@ struct AppInfoView: View {
                 
                 Button(action: onNext) {
                     Text("Continue to Pitch Matcher")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(AppTheme.accentGradient)
-                        .cornerRadius(16)
                 }
-                .buttonStyle(.plain) // 👈 UPDATED: Implemented native Apple style modifier pass
+                .buttonStyle(GradientCapsuleButtonStyle())
                 .padding(.horizontal, 24)
                 .padding(.bottom, 20)
             }

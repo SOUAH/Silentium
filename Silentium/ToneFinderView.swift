@@ -159,23 +159,16 @@ struct ToneFinderView: View {
                             ProgressView()
                                 .tint(.white)
                         }
-                        
                         Text(isSavingData ? (isFirstTime ? "Finishing..." : "Saving...") : (isFirstTime ? "Finish Setup" : "Save Calibration"))
-                            .font(.system(size: 17, weight: .bold))
                     }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(AppTheme.accentGradient)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .shadow(color: Color.orange.opacity(0.2), radius: 8, x: 0, y: 4)
                 }
+                .buttonStyle(GradientCapsuleButtonStyle())
                 .disabled(isSavingData)
-                .buttonStyle(ScaleButtonStyle())
                 .padding(.horizontal, 24)
             }
             .padding(.bottom, 20)
         }
+        // 👈 FIXED: Left custom hardcoded toolbars commented out to let the native system navigation back chevron function seamlessly without overlap
         .onAppear {
             engine.startTestTone(frequency: frequency, volume: fixedLoudnessBaseline)
         }
@@ -184,6 +177,7 @@ struct ToneFinderView: View {
         }
     }
     
+    // MARK: - Internal Calculations Matrix
     
     private func radiansForCurrentFrequency() -> Double {
         let linearRatio = (frequency - minFrequency) / (maxFrequency - minFrequency)

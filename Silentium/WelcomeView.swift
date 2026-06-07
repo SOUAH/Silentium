@@ -60,7 +60,7 @@ struct WelcomeView: View {
             FeatureRow(
                 symbol: "heart.text.square.fill",
                 title: "Bio-Responsive Stress Masking",
-                desc: "Real-time HealthKit integration adapts audio to your heart rate and stress levels."
+                desc: "Adapts audio therapy in real-time to your heart rate and stress levels."
             )
         }
         .padding(.horizontal, 35)
