@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-// MARK: - Shared Sound Bank
+// Shared Sound Bank
 // Single source of truth used by both SoundsView and SoundCategoryListView.
 // Procedural DSP sounds + new file-backed mixkit sounds with their categories.
 let allSounds: [MaskingSound] = [
@@ -96,7 +96,7 @@ struct SoundCategoryListView: View {
                                 Button {
                                     UISelectionFeedbackGenerator().selectionChanged()
                                     selectedNoise = sound
-                                    engine.startProceduralSound(type: sound.name)
+                                    engine.startSound(type: sound.name) // Updated to new startSound method
                                     showPlayer = true
                                 } label: {
                                     HStack(spacing: 16) {
@@ -200,7 +200,7 @@ struct SoundCategoryListView: View {
             Button {
                 engine.isPlaying.toggle()
                 if engine.isPlaying {
-                    engine.startProceduralSound(type: activeSound.name)
+                    engine.startSound(type: activeSound.name) // Updated to new startSound method
                 } else {
                     engine.stopMaskingSound()
                 }
@@ -246,3 +246,4 @@ struct SoundCategoryListView: View {
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }
+

@@ -10,9 +10,10 @@ import HealthKit
 // Wraps AVAudioPlayer so any bundled audio file can loop seamlessly.
 private class LoopedFilePlayer {
     private var player: AVAudioPlayer?
+    private var fadeTimer: Timer?
+    private(set) var currentFilename: String?
 
     func load(filename: String, ext: String = "mp3") -> Bool {
-        // Try the given extension first, then common alternatives
         let candidates = [ext, "mp3", "wav", "m4a", "caf", "aiff"]
         for candidate in candidates {
             if let url = Bundle.main.url(forResource: filename, withExtension: candidate) {
@@ -20,6 +21,7 @@ private class LoopedFilePlayer {
                     player = try AVAudioPlayer(contentsOf: url)
                     player?.numberOfLoops = -1   // infinite loop
                     player?.prepareToPlay()
+                    self.currentFilename = filename
                     print("✅  LoopedFilePlayer loaded: '\(filename).\(candidate)'")
                     return true
                 } catch {
@@ -28,30 +30,84 @@ private class LoopedFilePlayer {
                 }
             }
         }
-        // File not found in bundle at all – most likely not added to the Xcode target.
-        // Fix: select the file in the Project Navigator → File Inspector → tick "Silentium" under Target Membership.
         print("❌  LoopedFilePlayer: '\(filename)' not found in app bundle with any known extension.")
         print("    → Make sure the file is added to the Silentium target in Xcode (Target Membership checkbox).")
         return false
     }
 
-    func play(volume: Float = 0.85) {
-        player?.volume = volume
+    func play(volume: Float = 0.85, fadeInDuration: TimeInterval = 0, completion: (() -> Void)? = nil) {
+        player?.volume = 0.0
         player?.play()
+        if fadeInDuration > 0 {
+            fade(to: volume, duration: fadeInDuration) {
+                completion?()
+            }
+        } else {
+            player?.volume = volume
+            completion?()
+        }
     }
 
-    func stop() {
-        player?.stop()
-        player?.currentTime = 0
+    func stop(fadeOutDuration: TimeInterval = 0, completion: (() -> Void)? = nil) {
+        if fadeOutDuration > 0 && isPlaying {
+            fade(to: 0.0, duration: fadeOutDuration) { [weak self] in
+                self?.player?.stop()
+                self?.player?.currentTime = 0
+                self?.fadeTimer?.invalidate()
+                completion?()
+            }
+        } else {
+            player?.stop()
+            player?.currentTime = 0
+            fadeTimer?.invalidate()
+            completion?()
+        }
     }
 
-    func setVolume(_ v: Float) { player?.volume = v }
+    func setVolume(_ v: Float, duration: TimeInterval = 0.0) {
+        if duration > 0 {
+            fade(to: v, duration: duration)
+        } else {
+            player?.volume = v
+        }
+    }
+
+    func fade(to targetVolume: Float, duration: TimeInterval, completion: (() -> Void)? = nil) {
+        fadeTimer?.invalidate()
+        guard let player = player else {
+            completion?()
+            return
+        }
+
+        let startVolume = player.volume
+        let startTime = Date()
+
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [weak self] timer in
+            guard let self = self else {
+                timer.invalidate()
+                completion?()
+                return
+            }
+
+            let elapsed = Date().timeIntervalSince(startTime)
+            if elapsed >= duration {
+                player.volume = targetVolume
+                timer.invalidate()
+                completion?()
+                return
+            }
+
+            let progress = Float(elapsed / duration)
+            player.volume = startVolume + (targetVolume - startVolume) * progress
+        }
+    }
+
     var isPlaying: Bool { player?.isPlaying ?? false }
 }
 
 class TinnitusAppEngine: ObservableObject {
 
-    // MARK: - AudioKit nodes (procedural DSP)
+    // AudioKit nodes (procedural DSP)
     let engine = AudioEngine()
     private var whiteNoiseSource: WhiteNoise?
     private var pinkNoiseSource: PinkNoise?
@@ -60,12 +116,11 @@ class TinnitusAppEngine: ObservableObject {
     private var dynamicFilter: LowPassFilter?
     private var autoWahShifter: AutoWah?
     private var surgicalNotchFilter: EqualizerFilter?
+    private var masterDSPGain: Mixer? // FIXED: Use Mixer for master volume / gain control
 
-    // MARK: - File-based looped players (for the new mixkit assets)
+    // File-based looped players (for the new mixkit assets)
     private var filePlayers: [String: LoopedFilePlayer] = [:]
 
-    // Maps sound name → (filename-without-ext, volume)
-    // Add every new mixkit file here. The key must match MaskingSound.name exactly.
     private let fileBackedSounds: [String: (file: String, volume: Float)] = [
         "Birds & Jungle Morning":   (file: "mixkit-birds-chirping-in-the-jungle-2433",   volume: 0.80),
         "Dry Autumn Leaves":        (file: "mixkit-dry-leaves-sound-2428",                volume: 0.75),
@@ -75,7 +130,7 @@ class TinnitusAppEngine: ObservableObject {
         "Thunder & Light Rain":     (file: "mixkit-thunder-rumble-and-light-rain-2401",   volume: 0.85),
     ]
 
-    // MARK: - Published State
+    // Published State
     @Published var calibratedFrequency: Double = 4000.0
     @Published var activeSoundscapeName: String = "None"
     @Published var isPlaying: Bool = false
@@ -93,6 +148,10 @@ class TinnitusAppEngine: ObservableObject {
     private var naturalMovementTimer: Timer?
     private var lfoPhase: Double = 0.0
 
+    // Fade Management
+    private var currentFadeTask: Task<Void, Never>? = nil
+    private let fadeDuration: TimeInterval = 0.8
+
     // Sleep Fade
     private var sleepFadeTimer: Timer?
     private var fadeDurationSeconds: Double = 600.0
@@ -103,13 +162,12 @@ class TinnitusAppEngine: ObservableObject {
     private let healthStore = HKHealthStore()
     private var heartRateQuery: HKObserverQuery?
 
-    // Haptic generators (pre-warmed)
+    // Haptic generators
     private let impactHeavy   = UIImpactFeedbackGenerator(style: .heavy)
     private let impactMedium  = UIImpactFeedbackGenerator(style: .medium)
     private let impactLight   = UIImpactFeedbackGenerator(style: .light)
     private let notifFeedback = UINotificationFeedbackGenerator()
 
-    // MARK: - Init
     init() {
         impactHeavy.prepare()
         impactMedium.prepare()
@@ -131,7 +189,6 @@ class TinnitusAppEngine: ObservableObject {
             print("Audio engine startup failed: \(error)")
         }
 
-        // Pre-load all file-backed sounds so first play is instant
         for (name, meta) in fileBackedSounds {
             let p = LoopedFilePlayer()
             _ = p.load(filename: meta.file)
@@ -139,7 +196,7 @@ class TinnitusAppEngine: ObservableObject {
         }
     }
 
-    // MARK: - AudioKit Pipeline
+    // AudioKit Pipeline
     private func setupAudioKitPipeline() {
         let whiteNode = WhiteNoise()
         let pinkNode  = PinkNoise()
@@ -169,7 +226,12 @@ class TinnitusAppEngine: ObservableObject {
         notchNode.gain = 0.001
         surgicalNotchFilter = notchNode
 
-        engine.output = notchNode
+        // FIXED: Master Mixer controls overall DSP volume
+        let masterMixer = Mixer(notchNode)
+        masterMixer.volume = 0.0
+        masterDSPGain = masterMixer
+
+        engine.output = masterMixer
 
         whiteNode.stop()
         pinkNode.stop()
@@ -177,7 +239,7 @@ class TinnitusAppEngine: ObservableObject {
         oscNode.stop()
     }
 
-    // MARK: - Recommendation Engine
+    // Recommendation Engine
     func getRecommendationReason(for soundName: String) -> String? {
         let freq = calibratedFrequency
         let category = categoryForSound(soundName)
@@ -204,13 +266,11 @@ class TinnitusAppEngine: ObservableObject {
     }
 
     private func categoryForSound(_ name: String) -> String {
-        // File-backed sounds categories
         switch name {
         case "Birds & Jungle Morning", "Dry Autumn Leaves", "Liquid Bubble Flow":
             return "Pink"
         case "Heavy Rain Storm", "Thunder & Light Rain":
             return "White"
-        // Procedural DSP sounds
         case "Torrential Downpour", "Misty Waterfall Veil":
             return "White"
         case "Rhythmic Ocean Swells", "Wind Through Pine Needles", "Gentle Meadow Stream":
@@ -222,34 +282,48 @@ class TinnitusAppEngine: ObservableObject {
         }
     }
 
-    func startProceduralSound(type: String) {
-        stopAllSources()
+    func startSound(type: String) {
+        currentFadeTask?.cancel()
+        currentFadeTask = Task {
+            await fadeOutCurrentSound()
 
-        activeSoundscapeName = type
-        isPlaying = true
+            await MainActor.run {
+                self.activeSoundscapeName = type
+                self.isPlaying = true
+                self.updateSoundMetadata(for: type)
+            }
 
-        updateSoundMetadata(for: type)
+            if !engine.avEngine.isRunning { try? engine.start() }
+            updateNotchFrequency()
 
-        if !engine.avEngine.isRunning { try? engine.start() }
-        updateNotchFrequency()
-
-        // If it's a file-backed sound, play via AVAudioPlayer (looped)
-        if let meta = fileBackedSounds[type] {
-            let p = filePlayers[type] ?? {
-                let newP = LoopedFilePlayer()
-                _ = newP.load(filename: meta.file)
-                filePlayers[type] = newP
-                return newP
-            }()
-            p.play(volume: meta.volume)
-            // Haptic: playback start
-            impactLight.impactOccurred()
-            return
+            if let meta = fileBackedSounds[type] {
+                let p = filePlayers[type] ?? {
+                    let newP = LoopedFilePlayer()
+                    _ = newP.load(filename: meta.file)
+                    filePlayers[type] = newP
+                    return newP
+                }()
+                await withCheckedContinuation { continuation in
+                    p.play(volume: meta.volume, fadeInDuration: fadeDuration) {
+                        continuation.resume()
+                    }
+                }
+            } else {
+                startDSPSound(type: type)
+                guard let booster = masterDSPGain else { return }
+                let targetGain: AUValue = 1.0
+                booster.volume = 0.0
+                for i in 0..<Int(fadeDuration / 0.02) {
+                    let progress = Float(i) / Float(fadeDuration / 0.02)
+                    booster.volume = targetGain * progress
+                    try? await Task.sleep(nanoseconds: 20_000_000)
+                }
+                booster.volume = targetGain
+            }
+            await MainActor.run {
+                impactLight.impactOccurred()
+            }
         }
-
-        // Otherwise drive the AudioKit DSP pipeline
-        startDSPSound(type: type)
-        impactLight.impactOccurred()
     }
 
     private func startDSPSound(type: String) {
@@ -267,7 +341,7 @@ class TinnitusAppEngine: ObservableObject {
             dynamicFilter?.cutoffFrequency = 5500.0
 
         case "Rhythmic Ocean Swells":
-            pinkNoiseSource?.start()
+            pinkNoiseSource?.start(); pinkNoiseSource?.amplitude = 0.50
             startNaturalMovementLFO(speed: 0.18) { [weak self] phase in
                 self?.dynamicFilter?.cutoffFrequency = Float(sin(phase) * 600.0 + 1500.0)
                 self?.pinkNoiseSource?.amplitude     = Float(sin(phase) * 0.20 + 0.40)
@@ -308,39 +382,71 @@ class TinnitusAppEngine: ObservableObject {
 
     // MARK: - Stop
     func stopMaskingSound() {
-        stopAllSources()
-        isPlaying = false
-        // Haptic: stop
-        impactMedium.impactOccurred()
+        currentFadeTask?.cancel()
+        currentFadeTask = Task {
+            await fadeOutCurrentSound()
+            await MainActor.run {
+                self.isPlaying = false
+                impactMedium.impactOccurred()
+            }
+        }
     }
 
     func forceQuitEngineTrack() {
-        stopMaskingSound()
-        activeSoundscapeName = "None"
+        currentFadeTask?.cancel()
+        currentFadeTask = Task {
+            await fadeOutCurrentSound()
+            await MainActor.run {
+                self.activeSoundscapeName = "None"
+                self.isPlaying = false
+                impactMedium.impactOccurred()
+            }
+        }
     }
 
-    private func stopAllSources() {
+    private func _stopAllSourcesImmediately() {
         naturalMovementTimer?.invalidate()
         naturalMovementTimer = nil
         whiteNoiseSource?.stop()
         pinkNoiseSource?.stop()
         brownNoiseSource?.stop()
         diagnosticOscillator?.stop()
-        // Stop all file players
         for p in filePlayers.values { p.stop() }
     }
 
+    private func fadeOutCurrentSound() async {
+        guard isPlaying else { return }
+
+        naturalMovementTimer?.invalidate()
+        naturalMovementTimer = nil
+
+        let soundName = activeSoundscapeName
+
+        if let meta = fileBackedSounds[soundName], let p = filePlayers[soundName] {
+            await withCheckedContinuation { continuation in
+                p.stop(fadeOutDuration: fadeDuration) {
+                    continuation.resume()
+                }
+            }
+        } else {
+            guard let booster = masterDSPGain else { return }
+            let initialGain = booster.volume
+            for i in 0..<Int(fadeDuration / 0.02) {
+                let progress = 1.0 - Float(i) / Float(fadeDuration / 0.02)
+                booster.volume = initialGain * progress
+                try? await Task.sleep(nanoseconds: 20_000_000)
+            }
+            booster.volume = 0.0
+        }
+        _stopAllSourcesImmediately()
+    }
+
     // MARK: - Room Compensation
-    /// Call this whenever the room compensation toggle changes.
     func setRoomCompensationActive(_ isActive: Bool) {
         isRoomCompensationActive = isActive
         if isActive {
-            // Apply a gentle high-shelf cut to compensate for typical room
-            // standing-wave buildup below ~200 Hz and mid-room reflections.
-            // We model this by narrowing the LPF cutoff and adding slight resonance.
             dynamicFilter?.resonance = 0.3
             dynamicFilter?.cutoffFrequency = min(dynamicFilter?.cutoffFrequency ?? 20_000, 18_000)
-            // Haptic confirmation
             notifFeedback.notificationOccurred(.success)
             print("Room compensation ON – filter resonance shaped for reflective room.")
         } else {
@@ -350,8 +456,8 @@ class TinnitusAppEngine: ObservableObject {
         }
     }
 
-    // MARK: - Haptic Helpers (public API for views)
-    func hapticSelection()            { UISelectionFeedbackGenerator().selectionChanged() }
+    // MARK: - Haptic Helpers
+    func hapticSelection() { UISelectionFeedbackGenerator().selectionChanged() }
     func hapticImpact(_ s: UIImpactFeedbackGenerator.FeedbackStyle = .medium) {
         UIImpactFeedbackGenerator(style: s).impactOccurred()
     }
@@ -406,17 +512,29 @@ class TinnitusAppEngine: ObservableObject {
         secondsRemainingInFade  = fadeDurationSeconds
         initialFadeFilterCutoff = dynamicFilter?.cutoffFrequency ?? 20_000.0
 
+        if fileBackedSounds[activeSoundscapeName] == nil {
+            masterDSPGain?.volume = 1.0
+        }
+        if let meta = fileBackedSounds[activeSoundscapeName],
+           let p = filePlayers[activeSoundscapeName],
+           p.isPlaying {
+            p.setVolume(meta.volume, duration: 0.0)
+        }
+
         sleepFadeTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             if self.secondsRemainingInFade > 0 {
                 self.secondsRemainingInFade -= 1
                 let ratio = Float(self.secondsRemainingInFade / self.fadeDurationSeconds)
+
                 self.dynamicFilter?.cutoffFrequency = 150.0 + (self.initialFadeFilterCutoff - 150.0) * ratio
-                self.whiteNoiseSource?.amplitude = 0.35 * ratio
-                self.pinkNoiseSource?.amplitude  = 0.45 * ratio
-                self.brownNoiseSource?.amplitude = 0.55 * ratio
-                for p in self.filePlayers.values where p.isPlaying {
-                    p.setVolume(0.85 * ratio)
+
+                if self.fileBackedSounds[self.activeSoundscapeName] == nil {
+                    self.masterDSPGain?.volume = ratio
+                } else {
+                    if let p = self.filePlayers[self.activeSoundscapeName], p.isPlaying {
+                        p.setVolume(self.fileBackedSounds[self.activeSoundscapeName]!.volume * ratio, duration: 1.0)
+                    }
                 }
             } else {
                 self.forceQuitEngineTrack()
@@ -429,9 +547,15 @@ class TinnitusAppEngine: ObservableObject {
         sleepFadeTimer?.invalidate()
         sleepFadeTimer = nil
         dynamicFilter?.cutoffFrequency = 20_000.0
+        masterDSPGain?.volume = 1.0
+        if let meta = fileBackedSounds[activeSoundscapeName],
+           let p = filePlayers[activeSoundscapeName],
+           p.isPlaying {
+            p.setVolume(meta.volume, duration: 0.0)
+        }
     }
 
-    // MARK: - Metadata helper
+    // Metadata helper
     private func updateSoundMetadata(for type: String) {
         let sub: String
         switch categoryForSound(type) {
@@ -442,7 +566,7 @@ class TinnitusAppEngine: ObservableObject {
         currentSelectedSoundMetadata = (title: type, subtitle: sub, key: type)
     }
 
-    // MARK: - HealthKit
+    // HealthKit
     func requestHealthKitPermission(completion: @escaping (Bool, Error?) -> Void) {
         guard HKHealthStore.isHealthDataAvailable() else {
             completion(false, NSError(domain: "Silentium", code: 1,
@@ -483,7 +607,6 @@ class TinnitusAppEngine: ObservableObject {
         healthStore.execute(query)
         heartRateQuery = query
 
-        // Initial fetch
         fetchLatestHeartRate { ok, rate, _ in
             if ok, let rate = rate {
                 DispatchQueue.main.async {
@@ -526,7 +649,6 @@ class TinnitusAppEngine: ObservableObject {
         guard level != stressLevel else { return }
         stressLevel = level
 
-        // Adaptive audio compensation
         switch level {
         case "Spike":
             surgicalNotchFilter?.gain = 0.05

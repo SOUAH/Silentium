@@ -169,7 +169,7 @@ struct PlayerView: View {
                     if engine.isPlaying {
                         deactivateSleepTimerSequence()
                     } else {
-                        engine.startProceduralSound(type: soundType)
+                        engine.startSound(type: soundType) // Updated to new startSound method
                         activateSleepTimerSequence()
                     }
                 } label: {
@@ -197,7 +197,7 @@ struct PlayerView: View {
         }
     }
 
-    // MARK: - Breathing Panel
+    // Breathing Panel
     private var breathingPanel: some View {
         VStack(spacing: 40) {
             VStack(spacing: 6) {
@@ -242,7 +242,7 @@ struct PlayerView: View {
         }
     }
 
-    // MARK: - Helpers
+    // Helpers
     private var progress: CGFloat {
         guard totalSeconds > 0 else { return 0 }
         return CGFloat(Double(totalSeconds - remainingSeconds) / Double(totalSeconds))
@@ -257,11 +257,11 @@ struct PlayerView: View {
         String(format: "%02d:%02d", seconds / 60, seconds % 60)
     }
 
-    // MARK: - Breathing Logic
+    // Breathing Logic
     private func startBreathingExerciseBridge(mode: BreathingPattern) {
         breathingCirclePhase = 0
         withAnimation(.easeInOut(duration: 0.4)) { dynamicBreathingMode = mode }
-        engine.startProceduralSound(type: soundType)
+        engine.startSound(type: soundType) // Updated to new startSound method
         executeBreathingAnimationLoop()
     }
 
@@ -314,7 +314,7 @@ struct PlayerView: View {
         withAnimation(.easeOut(duration: 0.2)) { breathingText = text }
     }
 
-    // MARK: - Timer
+    // Timer
     private func activateSleepTimerSequence() {
         masterTimer?.invalidate()
         isTimerRunning = true
@@ -340,7 +340,6 @@ struct PlayerView: View {
     }
 }
 
-// MARK: - Waveform Visual
 struct LargeWaveformVisual: View {
     let isPlaying: Bool
     let soundColors: [Color]
@@ -364,3 +363,4 @@ struct LargeWaveformVisual: View {
         .frame(height: 160)
     }
 }
+

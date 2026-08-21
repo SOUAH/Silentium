@@ -42,7 +42,7 @@ struct ToneFinderView: View {
             AppTheme.background.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // 1. Header Section with streamlined text padding properties
+                // 1. Header Section
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Find Your Tone")
@@ -63,32 +63,33 @@ struct ToneFinderView: View {
                 
                 // 2. Interactive Circular Dial Selector Console
                 ZStack {
-                    // Track Background track contour
+                    // Track Background contour
                     Circle()
-                        .stroke(AppTheme.text.opacity(0.05), lineWidth: 24)
+                        .stroke(AppTheme.text.opacity(0.08), lineWidth: 24)
                         .frame(width: 270, height: 270)
                     
                     // Progressive fill arc tracing the selected frequency locus
                     Circle()
                         .trim(from: 0, to: CGFloat((frequency - minFrequency) / (maxFrequency - minFrequency)))
-                        .stroke(AppTheme.accentGradient, style: StrokeStyle(lineWidth: 20, lineCap: .round))
+                        .stroke(AppTheme.accentGradient, style: StrokeStyle(lineWidth: 24, lineCap: .round))
                         .frame(width: 270, height: 270)
                         .rotationEffect(.degrees(-90)) // Aligns beginning point to top vertical 12 o'clock center
                     
-                    // Radial Drag Indicator Thumb Handle Node
+                    // Radial Drag Indicator Thumb Handle Node (Centered on the track)
                     GeometryReader { geometry in
                         let size = geometry.size
                         let center = CGPoint(x: size.width / 2, y: size.height / 2)
                         let radius = min(size.width, size.height) / 2
                         
                         let angleInRadians = radiansForCurrentFrequency()
-                        let handlePositionX = center.x + CGFloat(cos(angleInRadians)) * (radius - 12)
-                        let handlePositionY = center.y + CGFloat(sin(angleInRadians)) * (radius - 12)
+                        // 👈 Centered exactly along the stroke track centerline
+                        let handlePositionX = center.x + CGFloat(cos(angleInRadians)) * radius
+                        let handlePositionY = center.y + CGFloat(sin(angleInRadians)) * radius
                         
                         Circle()
                             .fill(Color.white)
-                            .frame(width: 36, height: 36)
-                            .shadow(color: Color.black.opacity(0.18), radius: 6, y: 3)
+                            .frame(width: 34, height: 34)
+                            .shadow(color: Color.black.opacity(0.20), radius: 5, x: 0, y: 2)
                             .position(x: handlePositionX, y: handlePositionY)
                             .gesture(
                                 DragGesture(minimumDistance: 0)
@@ -102,12 +103,12 @@ struct ToneFinderView: View {
                     
                     // Central Numeric Feedback Display metrics
                     VStack(spacing: 4) {
-                        Text("\(Int(frequency))")
-                            .font(.system(size: 48, weight: .bold, design: .monospaced))
+                        Text(formatFrequency(frequency))
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
                             .foregroundColor(AppTheme.text)
                         
                         Text("Hz")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(AppTheme.text.opacity(0.4))
                     }
                 }
@@ -130,7 +131,7 @@ struct ToneFinderView: View {
                 
                 Spacer(minLength: 30)
                 
-                // 4. HIG Platform Consideration Synchronized Button Action Flow
+                // 4. Action Button
                 Button(action: {
                     guard !isSavingData else { return }
                     
@@ -168,7 +169,6 @@ struct ToneFinderView: View {
             }
             .padding(.bottom, 20)
         }
-        // 👈 FIXED: Left custom hardcoded toolbars commented out to let the native system navigation back chevron function seamlessly without overlap
         .onAppear {
             engine.startTestTone(frequency: frequency, volume: fixedLoudnessBaseline)
         }
@@ -202,5 +202,12 @@ struct ToneFinderView: View {
         
         self.frequency = max(minFrequency, min(maxFrequency, transformedFrequencyOutput))
         engine.updateTestTone(frequency: self.frequency, volume: fixedLoudnessBaseline)
+    }
+    
+    private func formatFrequency(_ freq: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: freq)) ?? "\(Int(freq))"
     }
 }

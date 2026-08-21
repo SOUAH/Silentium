@@ -7,14 +7,32 @@
 
 import SwiftUI
 
+struct SleepSound: Identifiable {
+    var id: String { key }
+    let title: String
+    let subtitle: String
+    let icon: String
+    let key: String
+}
+
 struct SleepView: View {
     @ObservedObject var engine: TinnitusAppEngine
     @AppStorage("sleepNotchAttenuation") private var isNotchAttenuated = true
     
     // Core definition layout for our specialized medical sleep soundscapes
-    let fallAsleepSounds = [
-        (title: "Deep Brown Noise", subtitle: "Deep waterfall rumble. Perfect for masking high-frequency ringing.", icon: "water.waves", key: "brown_sleep"),
-        (title: "Sub-Delta Modulation", subtitle: "Fluid 10s breathing swells that coax your brain into deep sleep.", icon: "waveform.path.ecg", key: "sub_delta")
+    let fallAsleepSounds: [SleepSound] = [
+        SleepSound(
+            title: "Deep Brown Noise",
+            subtitle: "Deep waterfall rumble. Perfect for masking high-frequency ringing.",
+            icon: "water.waves",
+            key: "brown_sleep"
+        ),
+        SleepSound(
+            title: "Sub-Delta Modulation",
+            subtitle: "Fluid 10s breathing swells that coax your brain into deep sleep.",
+            icon: "waveform.path.ecg",
+            key: "sub_delta"
+        )
     ]
     
     var body: some View {
@@ -30,7 +48,7 @@ struct SleepView: View {
                             .padding(.horizontal, 20)
                         
                         VStack(spacing: 14) {
-                            ForEach(fallAsleepSounds, id: \.key) { sound in
+                            ForEach(fallAsleepSounds) { sound in
                                 let isThisCardActive = engine.activeSoundscapeName == sound.key
                                 
                                 Button(action: {
@@ -45,7 +63,7 @@ struct SleepView: View {
                                     )
                                     
                                     // Spin up audio nodes and launch master player view overlay panel
-                                    engine.startProceduralSound(type: sound.key)
+                                    engine.startSound(type: sound.key)
                                     engine.isPlayerPresentedFullScreen = true
                                 }) {
                                     HStack(alignment: .top, spacing: 16) {
@@ -150,4 +168,4 @@ struct SleepView: View {
             }
         }
     }
-}
+}   

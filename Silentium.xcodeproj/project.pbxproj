@@ -286,6 +286,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Silentium/Info.plist;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Silentium reads heart rate data from your Apple Watch to automatically adjust masking audio during sudden stress spikes or tinnitus flare-ups";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Silentium syncs with HealthKit to monitor real-time biometrics, allowing the audio engine to dynamically suppress perceived tinnitus spikes";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -321,6 +322,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Silentium/Info.plist;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Silentium reads heart rate data from your Apple Watch to automatically adjust masking audio during sudden stress spikes or tinnitus flare-ups";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Silentium syncs with HealthKit to monitor real-time biometrics, allowing the audio engine to dynamically suppress perceived tinnitus spikes";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

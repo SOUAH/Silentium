@@ -121,7 +121,6 @@ struct SoundsView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
 
-                    // ── Recommended ──────────────────────────────────────────
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Recommended For Your Tinnitus")
                             .font(.headline)
@@ -137,7 +136,7 @@ struct SoundsView: View {
                                     Button {
                                         engine.hapticSelection()
                                         selectedNoise = sound
-                                        engine.startProceduralSound(type: sound.name)
+                                        engine.startSound(type: sound.name) // Updated to new startSound method
                                         showPlayer = true
                                     } label: {
                                         SoundCard(
@@ -359,7 +358,7 @@ private struct MiniPlayerBar: View {
                 Button {
                     engine.isPlaying.toggle()
                     if engine.isPlaying {
-                        engine.startProceduralSound(type: activeSound.name)
+                        engine.startSound(type: activeSound.name) // Updated to new startSound method
                     } else {
                         engine.stopMaskingSound()
                     }
@@ -403,3 +402,4 @@ private struct MiniPlayerBar: View {
         }
     }
 }
+
